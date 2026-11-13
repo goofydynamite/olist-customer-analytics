@@ -1,12 +1,55 @@
 # Olist E-commerce: Customer, Delivery & Retention Analytics
 
-End-to-end analysis of ~100k orders from Olist, a Brazilian online marketplace (Sep 2016 to Aug 2018), using **SQL, Python and Excel**.
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white) ![SQL](https://img.shields.io/badge/SQL-SQLite-003B57?logo=sqlite&logoColor=white) ![Excel](https://img.shields.io/badge/Excel-Dashboard-217346?logo=microsoftexcel&logoColor=white) ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?logo=jupyter&logoColor=white) ![pandas](https://img.shields.io/badge/pandas-150458?logo=pandas&logoColor=white) ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikitlearn&logoColor=white)
+
+**SQL · Python · Excel** end-to-end analysis of ~100k real orders from Olist, a Brazilian online marketplace (Sep 2016 to Aug 2018, 9 linked tables).
+
+> **The headline:** delivery is what drives satisfaction. A late order averages **2.27 stars** vs **4.29** on time, and **62%** of late orders get a 1-2 star review. On top of that, **97% of customers never buy a second time**, so growth has been bought through acquisition, not loyalty.
+
+![Excel dashboard](reports/figures/10_excel_dashboard.png)
+
+---
 
 ## Business questions
+
 1. How is the business growing, and when do customers buy?
-2. Do customers come back? Which customers are worth the most?
+2. Do customers come back? Which customers are worth the most (RFM)?
 3. What causes bad reviews: the product or the delivery?
 4. Which states, categories and sellers need attention?
+
+## Headline numbers
+
+| Metric | Value |
+|---|---|
+| Orders (excl. canceled/unavailable) | 98,207 |
+| Unique customers | 94,990 |
+| Gross revenue (items + freight) | R$ 15.74M |
+| Average order value | R$ 160 |
+| Delivered late (vs promised date) | 6.8% |
+| Average review | 4.12 / 5 |
+| Customers with 2+ orders | 3.0% |
+| Revenue growth, Jan-Aug 2018 vs Jan-Aug 2017 | +140% |
+
+## Key findings and recommendations
+
+| # | Finding | Evidence | Recommendation |
+|---|---|---|---|
+| 1 | **Late delivery destroys ratings.** Even 1-3 days late drops the average from 4.1 to 3.3; 4+ days late, 68-80% of reviews are 1-2 stars. | `review_by_delivery_delay`; Mann-Whitney p < 0.001; days late is the strongest driver in a logistic model (AUC 0.74) | Pad delivery estimates in slow lanes, send proactive delay alerts, and rank sellers by on-time rate. |
+| 2 | **Almost no repeat business.** 97% of customers order once; in any month only ~0.3% of a cohort buys again. | `repeat_purchase_distribution`, `cohort_retention` | Second-order programme: a post-delivery coupon within 30 days, category-based reminders. Every +1pp in repeat rate is about 950 extra orders, or roughly R$ 150k. |
+| 3 | **Two RFM segments hold 56% of revenue.** "New high-value" (15% of customers, 28% of revenue) and "At-risk big spenders" (15%, 28%). | `rfm_segment_summary.csv` | Target new high-value buyers before they lapse; win back at-risk big spenders. |
+| 4 | **Multi-seller orders rate much lower** (2.86 vs 4.17), since they arrive as separate parcels. | `multi_seller_orders` | Consolidate shipments or set expectations at checkout. |
+| 5 | **The North and Northeast are underserved.** AL, MA, SE, CE and PA wait 21-25 days (SP: 9), pay freight worth 43-54% of the item price, and rate lowest. | `customers_by_state` | Regional fulfilment hubs and carriers; freight subsidies on high-value categories. |
+| 6 | **Seller revenue is concentrated.** The top 10% of sellers carry 68% of revenue. 38 sellers with 50+ orders are "at risk" (rating < 3.5 or > 15% late). | `seller_concentration`, `seller_scorecard` | Coach or demote at-risk sellers; protect star sellers. |
+| 7 | **Late-delivery spikes** came in Nov-2017 (Black Friday) and Feb-Mar 2018 (up to ~19% late). | `monthly_trend` | Add carrier capacity before Q4 and the post-Carnival period. |
+
+## What each tool does
+
+| Layer | Files | What it shows |
+|---|---|---|
+| **Python ETL** | [`src/etl.py`](src/etl.py) | Loads 9 CSVs, fixes types, deduplicates reviews, translates categories, collapses 1M geolocation rows to one point per zip code, builds a **SQLite** database with indexes, and writes a [data-quality report](outputs/data_quality_report.csv). |
+| **SQL** | [`sql/`](sql) (20 queries) | Analytical views (order-grain fact view), **CTEs**, **window functions** (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`), cohort retention, RFM base, Pareto, seller segmentation with `CASE`. Run by [`src/run_sql.py`](src/run_sql.py), and results land in [`outputs/sql_results/`](outputs/sql_results). |
+| **Python analysis** | [`notebooks/olist_analysis.ipynb`](notebooks/olist_analysis.ipynb) (source [`src/analysis.py`](src/analysis.py)) | RFM segmentation with actions, cohort heatmap, a statistical test (Mann-Whitney U), a logistic-regression driver model for negative reviews, a state regression, a customer map, and 9 charts. |
+| **Excel** | [`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) | One-page dashboard with KPI tiles, 7 native charts, and an **interactive state lookup** (dropdown + `INDEX/MATCH`). Data tabs use Excel Tables, **430+ live formulas** (`SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `SUMPRODUCT`, `RANK`, MoM growth, running totals, Pareto classes), and conditional formatting (data bars, colour scales). |
 
 ## Data
 The 9 original CSVs are in [`data/raw/`](data/raw), unchanged.
@@ -242,5 +285,26 @@ python src/build_excel.py
 
 On Windows with Excel installed, `powershell -File src/excel_recalc.ps1 -Png reports/figures/10_excel_dashboard.png` recalculates every formula and renders the dashboard image. Elsewhere, the workbook calculates when it is opened.
 
-## Status
-Work in progress: data cleaning, SQL analysis, Python analysis and an Excel dashboard are being added.
+## How to run
+
+```bash
+pip install -r requirements.txt
+python run_all.py          # the 9 raw CSVs are already in data/raw/
+```
+The pipeline runs ETL, then SQL, then the notebook (figures), then Excel. On Windows with Excel installed, it also recalculates the workbook and renders the dashboard image. On other systems, the workbook calculates when you open it.
+
+**Data:** the 9 original CSVs are included unchanged in [`data/raw/`](data/raw) (~120 MB), and the 8 cleaned tables in [`data/cleaned/`](data/cleaned) (~70 MB). Source: [Brazilian E-Commerce Public Dataset by Olist (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), CC BY-NC-SA 4.0.
+
+## Project structure
+```
+olist-customer-analytics/
+├── run_all.py
+├── .gitattributes
+├── src/            etl.py · run_sql.py · analysis.py · make_notebook.py · build_excel.py · excel_recalc.ps1
+├── sql/            00_views · 01_business_kpis · 02_customers_retention · 03_delivery_reviews · 04_products_sellers
+├── notebooks/      olist_analysis.ipynb
+├── excel/          Olist_Customer_Dashboard.xlsx
+├── outputs/        sql_results/*.csv · data_quality_report.csv
+├── reports/figures/
+└── data/           raw/ (9 original CSVs) · cleaned/ (8 cleaned CSVs) · processed/ (RFM outputs) · olist.db (git-ignored)
+```

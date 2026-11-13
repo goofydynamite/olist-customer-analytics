@@ -1,0 +1,6 @@
+# Count SQL in GitHub's language stats (Linguist treats .sql as data by default)
+*.sql linguist-detectable=true
+*.sql linguist-language=SQL
+
+# Keep data and generated files out of the language stats
+*.csv linguist-generated=true
