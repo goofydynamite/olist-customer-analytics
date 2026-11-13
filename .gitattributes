@@ -4,3 +4,6 @@
 
 # Keep data and generated files out of the language stats
 *.csv linguist-generated=true
+# The notebook is generated from src/analysis.py by src/make_notebook.py; its embedded
+# chart images would otherwise make "Jupyter Notebook" ~95% of the language bar.
+notebooks/*.ipynb linguist-generated=true
