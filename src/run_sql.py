@@ -1,12 +1,4 @@
-"""
-Step 2 - run every SQL file in sql/ against data/olist.db.
-
-    python src/run_sql.py
-
-Files are executed in name order. A statement preceded by a line
-"-- name: <query_name>" is a SELECT whose result is saved to
-outputs/sql_results/<query_name>.csv. Everything else (views, DDL) is just executed.
-"""
+"""Run the files in sql/ in order. Queries marked `-- name: x` are saved to outputs/sql_results/x.csv."""
 from __future__ import annotations
 
 import re

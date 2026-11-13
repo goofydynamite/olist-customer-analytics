@@ -1,8 +1,4 @@
-"""
-Turn src/analysis.py (percent-format cells) into an executed Jupyter notebook.
-
-    python src/make_notebook.py  ->  notebooks/olist_analysis.ipynb
-"""
+"""Convert src/analysis.py (# %% cells) into notebooks/olist_analysis.ipynb and run it."""
 from pathlib import Path
 
 import nbformat

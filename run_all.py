@@ -1,14 +1,4 @@
-"""
-Run the whole pipeline end to end:
-
-    python run_all.py
-
-1. src/etl.py            raw CSVs  -> data/olist.db (SQLite)
-2. src/run_sql.py        sql/*.sql -> outputs/sql_results/*.csv
-3. src/make_notebook.py  analysis  -> notebooks/olist_analysis.ipynb + reports/figures/*.png
-4. src/build_excel.py    results   -> excel/Olist_Customer_Dashboard.xlsx
-5. src/excel_recalc.ps1  (Windows + Excel only) recalculates formulas and renders the dashboard PNG
-"""
+"""Run everything: cleaning, SQL, notebook, Excel."""
 import platform
 import shutil
 import subprocess

@@ -1,11 +1,4 @@
-"""
-Step 4 - build the Excel dashboard from the SQL + Python outputs.
-
-    python src/build_excel.py   ->  excel/Olist_Customer_Dashboard.xlsx
-
-Data sheets hold the query results as values; every KPI, ratio, growth rate,
-lookup and summary on top of them is a live Excel formula.
-"""
+"""Build excel/Olist_Customer_Dashboard.xlsx from the query results."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -92,7 +85,7 @@ def main() -> None:
     dash = wb.active
     dash.title = "Dashboard"
 
-    # ------------------------------------------------------------------ Monthly
+    # monthly
     ws = wb.create_sheet("Monthly")
     header(ws, "Monthly Performance", "Jan 2017 - Aug 2018")
     m = r("monthly_trend")[["purchase_month", "orders", "customers", "revenue", "avg_review", "late_rate_pct"]]
@@ -115,7 +108,7 @@ def main() -> None:
     ws.conditional_formatting.add(f"D{m0}:D{m1}", DataBarRule(start_type="min", end_type="max", color="93C5FD"))
     ws.freeze_panes = "B5"
 
-    # ------------------------------------------------------------------ States
+    # states
     ws = wb.create_sheet("States")
     header(ws, "Performance by State")
     s = pct(r("customers_by_state"), ["freight_pct_of_items", "late_pct"]).rename(columns={
@@ -138,7 +131,7 @@ def main() -> None:
     ws.conditional_formatting.add(f"I{s0}:I{s1}", DataBarRule(start_type="num", start_value=0, end_type="max", color="FCA5A5"))
     ws.freeze_panes = "B5"
 
-    # ------------------------------------------------------------------ Categories
+    # categories
     ws = wb.create_sheet("Categories")
     header(ws, "Category Performance", "Revenue = item price (excl. freight)")
     c = r("category_performance")[["category", "items_sold", "orders", "revenue", "avg_price",
@@ -164,7 +157,7 @@ def main() -> None:
     ws.conditional_formatting.add(f"G{c0}:G{c1}", FormulaRule(formula=[f"G{c0}<3.8"], fill=PatternFill("solid", fgColor="FEE2E2")))
     ws.freeze_panes = "B5"
 
-    # ------------------------------------------------------------------ Delivery & reviews
+    # delivery & reviews
     ws = wb.create_sheet("Delivery_Reviews")
     header(ws, "Delivery vs Reviews", "Delivered orders with a review")
     d = r("review_by_delivery_delay")
@@ -208,7 +201,7 @@ def main() -> None:
     write_table(ws, lanes, 4, 9, "tLanes", {"Items": "int", "Avg delivery days": "dec1",
                                             "Late rate": "pct", "Avg review": "dec2"})
 
-    # ------------------------------------------------------------------ Retention
+    # retention
     ws = wb.create_sheet("Retention")
     header(ws, "Repeat Purchases & Retention")
     rp = pct(r("repeat_purchase_distribution"), ["pct_customers", "pct_revenue"]).rename(columns={
@@ -250,7 +243,7 @@ def main() -> None:
     for col in range(1, 15):
         ws.column_dimensions[get_column_letter(col)].width = 12 if col > 2 else 18
 
-    # ------------------------------------------------------------------ RFM
+    # rfm
     ws = wb.create_sheet("RFM_Segments")
     ref = r("rfm_reference").iloc[0]
     header(ws, "RFM Segments", f"Reference date: {ref.reference_date}")
@@ -283,7 +276,7 @@ def main() -> None:
     ws.conditional_formatting.add(f"A{g0}:A{g1}", FormulaRule(
         formula=[f'OR(A{g0}="At Risk",A{g0}="About to Sleep",A{g0}="Lost")'], font=Font(name=FONT, color="DC2626", bold=True)))
 
-    # churn flag (stretch goal)
+    # churn flag
     cr = r("rfm_churn_risk")
     cr["churn_risk_tier"] = cr["churn_risk_tier"].str[2:]
     cr = cr[["churn_risk_tier", "customers", "revenue", "avg_spend", "avg_recency_days"]].rename(columns={
@@ -336,7 +329,7 @@ def main() -> None:
     for col, w in zip("ABCDEFGHIJKL", [34, 11, 12, 15, 11, 15, 14, 11, 14, 18, 16, 62]):
         ws.column_dimensions[col].width = w
 
-    # ------------------------------------------------------------------ Sellers
+    # sellers
     ws = wb.create_sheet("Sellers")
     header(ws, "Seller Scorecard")
     sel = pct(r("seller_scorecard"), ["late_pct"]).rename(columns={
@@ -370,7 +363,7 @@ def main() -> None:
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A5"
 
-    # ------------------------------------------------------------------ Payments
+    # payments
     ws = wb.create_sheet("Payments")
     header(ws, "Payment Methods")
     pm = pct(r("payment_mix"), ["pct_value"]).rename(columns={
@@ -384,7 +377,7 @@ def main() -> None:
     write_table(ws, it, p1 + 3, 1, "tInstallments", {"Orders": "int", "Avg order value (R$)": "brl2"},
                 widths={"Installments (credit card)": 26})
 
-    # ------------------------------------------------------------------ Data quality + notes
+    # data quality + notes
     ws = wb.create_sheet("Data_Quality")
     header(ws, "Data Quality Checks", "Raw files, before cleaning")
     write_table(ws, r("../data_quality_report"), 4, 1, "tDQ", {"rows": "int", "null_cells": "int"},
@@ -401,7 +394,7 @@ def main() -> None:
     for i, n in enumerate(notes, start=16):
         ws.cell(i, 1, n).font = F_BOLD if i == 16 else F_B
 
-    # ------------------------------------------------------------------ Dashboard
+    # dashboard
     ws = dash
     ws.sheet_view.showGridLines = False
     ws["B1"], ws["B1"].font = "Olist E-commerce Dashboard", F_TITLE
@@ -437,7 +430,7 @@ def main() -> None:
                 ws.cell(rr, cc).fill = FILL_TILE
     ws.row_dimensions[5].height = ws.row_dimensions[6].height = 18
 
-    # --- interactive state lookup
+    # state lookup
     ws["B8"], ws["B8"].font = "Select state:", F_BOLD
     ws["F8"] = "RJ"
     ws["F8"].fill, ws["F8"].font, ws["F8"].border = FILL_INPUT, F_BOLD, BOX
@@ -457,7 +450,7 @@ def main() -> None:
     ws["F9"] = '=IF(P8>Q5,"Worse","Better")'
     ws["F9"].font = F_B
 
-    # --- charts
+    # charts
     PALETTE = ["2563EB", "F59E0B", "1F2937"]
 
     def place(chart, anchor, w=16, h=7.5):

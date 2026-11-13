@@ -1,6 +1,4 @@
--- =====================================================================
--- 03_delivery_reviews.sql  -  how logistics drives customer satisfaction
--- =====================================================================
+-- Delivery times vs review scores.
 
 -- name: review_by_delivery_delay
 SELECT  CASE WHEN days_late <= -10 THEN '1 10+ days early'
@@ -41,7 +39,6 @@ WHERE   is_delivered = 1 AND review_score IS NOT NULL
 GROUP BY is_late;
 
 -- name: multi_seller_orders
--- Orders split across several sellers ship in several parcels.
 SELECT  CASE WHEN n_sellers = 1 THEN '1 seller' ELSE '2+ sellers' END AS sellers_in_order,
         COUNT(*)                          AS orders,
         ROUND(AVG(review_score), 2)       AS avg_review,
@@ -51,7 +48,7 @@ WHERE   is_delivered = 1 AND review_score IS NOT NULL
 GROUP BY 1;
 
 -- name: delivery_route_state_pairs
--- Seller state -> customer state lanes with the worst delays (min 200 items).
+-- seller state to customer state, routes with 200+ items
 SELECT  seller_state, customer_state,
         COUNT(*)                         AS items,
         ROUND(AVG(delivery_days), 1)     AS avg_delivery_days,

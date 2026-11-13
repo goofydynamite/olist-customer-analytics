@@ -1,20 +1,6 @@
--- =====================================================================
--- 05_rfm_segmentation.sql  -  RFM segmentation and churn-risk flag
---
--- Business question: which customer segments generate the most revenue,
--- and which are at risk of churning?
---
--- Rules
---   * Grain = one row per CUSTOMER (customer_unique_id). In Olist,
---     customer_id is re-issued for every order, so it cannot be used.
---   * Only valid orders: canceled / unavailable orders and orders with
---     no items are excluded (see v_orders in 00_views.sql).
---   * Reference date = the day after the last VALID order in the data.
---   * R and M scores are data-driven quintiles (NTILE 5); the exact
---     cut-off values are published by the rfm_cutoffs query.
---   * F cannot be split into quintiles because ~97% of customers buy
---     once, so F uses business logic: 1 order / 2 orders / 3+ orders.
--- =====================================================================
+-- RFM segments and churn flag, one row per customer (customer_unique_id).
+-- Recency is counted from the day after the last valid order.
+-- R and M are quintiles. F is just 1 / 2 / 3+ orders since ~97% of people only buy once.
 
 DROP TABLE IF EXISTS rfm_customers;
 CREATE TABLE rfm_customers AS
@@ -60,9 +46,9 @@ SELECT  *,
             WHEN r_score = 3                                   THEN 'About to Sleep'
             ELSE                                                    'Lost'
         END AS segment,
-        -- Stretch goal: churn flag as specified (one purchase, silent > 90 days)
+        -- churn flag: one order and nothing in the last 90 days
         CASE WHEN recency_days > 90 AND frequency = 1 THEN 1 ELSE 0 END AS churn_flag,
-        -- Prioritised version: the flag alone catches most customers, so rank by value
+        -- the flag catches most people, so split it by spend
         CASE WHEN recency_days > 90 AND frequency = 1 AND m_score >= 4 THEN '1 High risk - high value'
              WHEN recency_days > 90 AND frequency = 1                  THEN '2 High risk - low value'
              ELSE '3 Active (<= 90 days or repeat buyer)' END AS churn_risk_tier
@@ -77,7 +63,6 @@ SELECT  DATE(MAX(last_order), '+1 day')   AS reference_date,
 FROM    rfm_customers;
 
 -- name: rfm_cutoffs
--- The data-driven boundaries behind each R and M score.
 SELECT  'Recency (days since last order)' AS metric, r_score AS score,
         MIN(recency_days) AS min_value, MAX(recency_days) AS max_value, COUNT(*) AS customers
 FROM    rfm_customers GROUP BY r_score
@@ -119,7 +104,6 @@ GROUP BY churn_risk_tier
 ORDER BY churn_risk_tier;
 
 -- name: rfm_segment_by_state
--- Where the At Risk revenue sits geographically (top 10 states by At Risk revenue).
 SELECT  state,
         COUNT(*)                                       AS at_risk_customers,
         ROUND(SUM(monetary), 0)                        AS at_risk_revenue,

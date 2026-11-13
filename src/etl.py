@@ -1,13 +1,4 @@
-"""
-Step 1 - ETL: load the 9 raw Olist CSVs, clean them, and build a SQLite database.
-
-    python src/etl.py
-
-Output
-    data/olist.db                      SQLite database (cleaned tables + indexes)
-    data/cleaned/*.csv                 the same 8 cleaned tables as CSV files
-    outputs/data_quality_report.csv    row counts, nulls, duplicates per table
-"""
+"""Load the raw Olist CSVs, clean them and save to SQLite + data/cleaned/."""
 from __future__ import annotations
 
 import sqlite3
@@ -81,12 +72,12 @@ def main() -> None:
     CLEAN.mkdir(parents=True, exist_ok=True)
     report = []
 
-    # ---------- customers ----------
+    # customers
     customers = load("customers")
     customers["customer_city"] = customers["customer_city"].str.strip().str.title()
     report.append(quality("customers", customers, ["customer_id"]))
 
-    # ---------- orders ----------
+    # orders
     orders = load("orders")
     report.append(quality("orders", orders, ["order_id"]))
     # A handful of 'delivered' orders have no delivery date; flag rather than drop.
@@ -106,16 +97,16 @@ def main() -> None:
     orders["is_late"] = (orders["days_late"] > 0).astype(int).where(orders["is_delivered"] == 1)
     orders["purchase_month"] = orders["order_purchase_timestamp"].dt.to_period("M").astype(str)
 
-    # ---------- order items ----------
+    # order items
     items = load("order_items")
     report.append(quality("order_items", items, ["order_id", "order_item_id"]))
 
-    # ---------- payments ----------
+    # payments
     payments = load("payments")
     report.append(quality("payments", payments, ["order_id", "payment_sequential"]))
     payments = payments[payments["payment_type"] != "not_defined"]
 
-    # ---------- reviews ----------
+    # reviews
     reviews = load("reviews")
     report.append(quality("reviews", reviews, ["review_id"]))
     # Some orders have >1 review; keep the most recent answer per order.
@@ -126,7 +117,7 @@ def main() -> None:
     )
     reviews["has_comment"] = reviews["review_comment_message"].notna().astype(int)
 
-    # ---------- products + categories ----------
+    # products + categories
     products = load("products")
     report.append(quality("products", products, ["product_id"]))
     products = products.rename(columns={
@@ -141,12 +132,12 @@ def main() -> None:
     products["category"] = products["product_category_name_english"].fillna("unknown")
     report.append(quality("category_translation", trans, ["product_category_name"]))
 
-    # ---------- sellers ----------
+    # sellers
     sellers = load("sellers")
     sellers["seller_city"] = sellers["seller_city"].str.strip().str.title()
     report.append(quality("sellers", sellers, ["seller_id"]))
 
-    # ---------- geolocation: 1M rows -> one point per zip prefix ----------
+    # geolocation: 1M rows -> one point per zip prefix
     geo = load("geolocation")
     report.append(quality("geolocation", geo, None))
     # Keep only points inside Brazil's bounding box, then average per zip prefix.
@@ -156,7 +147,7 @@ def main() -> None:
                    state=("geolocation_state", "first"))
               .rename(columns={"geolocation_zip_code_prefix": "zip_code_prefix"}))
 
-    # ---------- write SQLite ----------
+    # write SQLite
     if DB.exists():
         DB.unlink()
     con = sqlite3.connect(DB)

@@ -1,15 +1,10 @@
-# Windows + Excel step, run after src/build_excel.py:
-#   1. adds the Orders_Raw tab (raw orders file) and Orders_Clean tab (analysis-ready orders from sql/00_views.sql);
-#      Excel imports them itself because ~100k rows is too heavy for openpyxl
-#   2. recalculates every formula
-#   3. optionally renders the Dashboard sheet to a PNG
-#
-#   powershell -File src/excel_recalc.ps1 [-Png reports/figures/10_excel_dashboard.png]
+# Adds the two orders tabs, recalculates the workbook and (optionally) saves a dashboard image.
+# Needs Excel. Usage: powershell -File src/excel_recalc.ps1 -Png reports/figures/10_excel_dashboard.png
 param([string]$Png = "")
 $root = Split-Path -Parent $PSScriptRoot
 $p = Join-Path $root "excel\Olist_Customer_Dashboard.xlsx"
 
-# column types for the import: 1 = General, 2 = Text, 5 = date (YMD)
+# import column types: 1 general, 2 text, 5 date
 $tabs = @(
     @{ Name = "Orders_Raw";   Csv = "data\raw\olist_orders_dataset.csv"; Types = [int[]](2, 2, 2, 5, 5, 5, 5, 5) },
     @{ Name = "Orders_Clean"; Csv = "outputs\sql_results\orders_clean.csv"; Types = [int[]](2, 2, 2, 2, 2, 5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1) }

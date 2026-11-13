@@ -1,9 +1,5 @@
--- =====================================================================
--- 00_views.sql  -  reusable analytical views on top of the raw tables
--- Grain notes:
---   * customer_id is per ORDER; customer_unique_id is the real person.
---   * an order can have many items, many payments, one (deduplicated) review.
--- =====================================================================
+-- Views used by the other queries.
+-- Note: customer_id changes with every order, customer_unique_id is the actual person.
 
 DROP VIEW IF EXISTS v_order_value;
 CREATE VIEW v_order_value AS
@@ -28,7 +24,7 @@ SELECT  order_id,
 FROM    payments p
 GROUP BY order_id;
 
--- One row per order: the fact table every analysis starts from.
+-- one row per order
 DROP VIEW IF EXISTS v_orders;
 CREATE VIEW v_orders AS
 SELECT  o.order_id,
@@ -54,7 +50,7 @@ LEFT JOIN v_order_value v  ON v.order_id = o.order_id
 LEFT JOIN v_order_payment p ON p.order_id = o.order_id
 LEFT JOIN reviews r        ON r.order_id = o.order_id;
 
--- Item-level view with category and seller location.
+-- one row per order item
 DROP VIEW IF EXISTS v_items;
 CREATE VIEW v_items AS
 SELECT  oi.order_id, oi.order_item_id, oi.product_id, oi.seller_id,
@@ -72,8 +68,7 @@ LEFT JOIN sellers s   ON s.seller_id = oi.seller_id
 LEFT JOIN reviews r   ON r.order_id = oi.order_id;
 
 -- name: orders_clean
--- Analysis-ready orders: the rows and columns every other query works from.
--- Used for the Orders_Clean tab in the workbook.
+-- valid orders with everything joined in (Orders_Clean tab in Excel)
 SELECT  v.order_id,
         v.customer_unique_id,
         v.customer_state,

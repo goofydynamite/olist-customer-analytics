@@ -1,9 +1,6 @@
--- =====================================================================
--- 01_business_kpis.sql  -  headline numbers and monthly trend
--- Revenue = item price + freight on non-cancelled/unavailable orders.
--- The data has a thin tail: Sep-Oct 2016 and Sep-Oct 2018 are partial,
--- so trend queries keep 2017-01 .. 2018-08.
--- =====================================================================
+-- KPIs and monthly trend.
+-- Revenue = price + freight, excluding canceled / unavailable orders.
+-- Trends use Jan 2017 - Aug 2018 (the months before and after are partial).
 
 -- name: kpi_summary
 SELECT  COUNT(*)                                        AS total_orders,

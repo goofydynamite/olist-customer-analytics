@@ -1,7 +1,4 @@
--- =====================================================================
--- 02_customers_retention.sql  -  repeat purchase, cohorts, states (RFM: see 05)
--- Uses customer_unique_id (the person), not customer_id (per order).
--- =====================================================================
+-- Repeat purchases, cohorts and states. Grouped by customer_unique_id.
 
 -- name: repeat_purchase_distribution
 WITH per_customer AS (
@@ -43,7 +40,7 @@ GROUP BY 1
 ORDER BY 1;
 
 -- name: cohort_retention
--- Cohort = month of first purchase. Retention = % of cohort buying again in month N.
+-- cohort = month of first order
 WITH firsts AS (
     SELECT customer_unique_id, MIN(purchase_month) AS cohort
     FROM   v_orders

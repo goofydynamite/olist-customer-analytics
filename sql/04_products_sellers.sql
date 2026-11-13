@@ -1,6 +1,4 @@
--- =====================================================================
--- 04_products_sellers.sql  -  category and seller performance
--- =====================================================================
+-- Categories and sellers.
 
 -- name: category_performance
 WITH c AS (
@@ -32,7 +30,7 @@ FROM    c
 ORDER BY revenue DESC;
 
 -- name: category_growth_2017_vs_2018
--- Jan-Aug of each year, so the comparison is like-for-like.
+-- Jan-Aug only so both years are comparable
 SELECT  category,
         ROUND(SUM(CASE WHEN purchase_month BETWEEN '2017-01' AND '2017-08' THEN price END), 0) AS rev_2017_jan_aug,
         ROUND(SUM(CASE WHEN purchase_month BETWEEN '2018-01' AND '2018-08' THEN price END), 0) AS rev_2018_jan_aug,
@@ -72,7 +70,6 @@ FROM    s
 ORDER BY revenue DESC;
 
 -- name: seller_concentration
--- How much revenue the top 1% / 10% / 20% of sellers carry.
 WITH s AS (
     SELECT seller_id, SUM(price) AS revenue FROM v_items
     WHERE order_status NOT IN ('canceled', 'unavailable') GROUP BY seller_id
