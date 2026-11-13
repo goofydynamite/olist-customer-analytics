@@ -1,5 +1,5 @@
 # Windows + Excel step, run after src/build_excel.py:
-#   1. adds the Orders_Raw and Orders_Clean tabs (orders table before / after cleaning);
+#   1. adds the Orders_Raw tab (raw orders file) and Orders_Clean tab (analysis-ready orders from sql/00_views.sql);
 #      Excel imports them itself because ~100k rows is too heavy for openpyxl
 #   2. recalculates every formula
 #   3. optionally renders the Dashboard sheet to a PNG
@@ -12,7 +12,7 @@ $p = Join-Path $root "excel\Olist_Customer_Dashboard.xlsx"
 # column types for the import: 1 = General, 2 = Text, 5 = date (YMD)
 $tabs = @(
     @{ Name = "Orders_Raw";   Csv = "data\raw\olist_orders_dataset.csv"; Types = [int[]](2, 2, 2, 5, 5, 5, 5, 5) },
-    @{ Name = "Orders_Clean"; Csv = "data\cleaned\orders.csv";            Types = [int[]](2, 2, 2, 5, 5, 5, 5, 5, 1, 1, 1, 1, 1, 2) }
+    @{ Name = "Orders_Clean"; Csv = "outputs\sql_results\orders_clean.csv"; Types = [int[]](2, 2, 2, 2, 2, 5, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1) }
 )
 
 $x = New-Object -ComObject Excel.Application
@@ -44,7 +44,9 @@ foreach ($t in $tabs) {
         if ($h -like "*timestamp*" -or $h -like "*_at" -or $h -like "*_date") {
             $ws.Columns.Item($c).NumberFormat = "yyyy-mm-dd hh:mm:ss"
         }
-        if ($h -in @("delivery_days", "estimated_days")) { $ws.Columns.Item($c).NumberFormat = "0.00" }
+        if ($h -in @("delivery_days", "estimated_days", "items_value", "freight_value", "gross_value")) {
+            $ws.Columns.Item($c).NumberFormat = "0.00"
+        }
     }
     $ws.Range("A1").CurrentRegion.Font.Name = "Calibri"
     $ws.Range("A1").CurrentRegion.Font.Size = 11

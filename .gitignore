@@ -11,3 +11,4 @@ __pycache__/
 outputs/sql_results/rfm_base.csv
 outputs/sql_results/rfm_customers.csv
 outputs/run_all.log
+outputs/sql_results/orders_clean.csv

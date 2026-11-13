@@ -70,3 +70,31 @@ JOIN    customers c  ON c.customer_id = o.customer_id
 LEFT JOIN products pr ON pr.product_id = oi.product_id
 LEFT JOIN sellers s   ON s.seller_id = oi.seller_id
 LEFT JOIN reviews r   ON r.order_id = oi.order_id;
+
+-- name: orders_clean
+-- Analysis-ready orders: the rows and columns every other query works from.
+-- Used for the Orders_Clean tab in the workbook.
+SELECT  v.order_id,
+        v.customer_unique_id,
+        v.customer_state,
+        v.customer_city,
+        v.order_status,
+        o.order_purchase_timestamp,
+        o.order_delivered_customer_date,
+        o.order_estimated_delivery_date,
+        v.delivery_days,
+        v.days_late,
+        v.is_late,
+        v.n_items,
+        v.n_sellers,
+        v.items_value,
+        v.freight_value,
+        v.gross_value,
+        v.main_payment_type,
+        v.max_installments,
+        v.review_score
+FROM    v_orders v
+JOIN    orders o ON o.order_id = v.order_id
+WHERE   v.order_status NOT IN ('canceled', 'unavailable')
+  AND   v.gross_value IS NOT NULL
+ORDER BY o.order_purchase_timestamp;
