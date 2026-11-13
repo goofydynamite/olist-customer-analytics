@@ -1,0 +1,10 @@
+table,rows,columns,null_cells,cols_with_nulls,duplicate_full_rows,primary_key,duplicate_keys
+customers,99441,5,0,-,0,customer_id,0
+orders,99441,8,4908,"order_approved_at, order_delivered_carrier_date, order_delivered_customer_date",0,order_id,0
+order_items,112650,7,0,-,0,order_id+order_item_id,0
+payments,103886,5,0,-,0,order_id+payment_sequential,0
+reviews,99224,7,145903,"review_comment_title, review_comment_message",0,review_id,814
+products,32951,9,2448,"product_category_name, product_name_lenght, product_description_lenght, product_photos_qty, product_weight_g, product_length_cm, product_height_cm, product_width_cm",0,product_id,0
+category_translation,73,2,0,-,0,product_category_name,0
+sellers,3095,4,0,-,0,seller_id,0
+geolocation,1000163,5,0,-,261831,-,0

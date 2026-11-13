@@ -36,7 +36,7 @@ geolocation (zip prefix -> lat/lng) joins customers and sellers
 
 ## Data cleaning
 
-All cleaning happens in `src/etl.py`. The original files in [`data/raw/`](data/raw) are never modified. The cleaned tables are written both to the SQLite database and as CSV files in `data/cleaned/`, so you can open them directly in Excel or pandas. Every check is also logged in `outputs/data_quality_report.csv` and the `Data_Quality` tab of the workbook.
+All cleaning happens in [`src/etl.py`](src/etl.py). The original files in [`data/raw/`](data/raw) are never modified. The cleaned tables are written both to the SQLite database and as CSV files in [`data/cleaned/`](data/cleaned), so you can open them directly in Excel or pandas. Every check is also logged in [`outputs/data_quality_report.csv`](outputs/data_quality_report.csv) and the `Data_Quality` tab of the workbook.
 
 ### Raw data at a glance
 
