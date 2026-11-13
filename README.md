@@ -1,80 +1,76 @@
-# Olist E-commerce: Customer, Delivery & Retention Analytics
+# Olist Customer Analytics
 
-![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white) ![SQL](https://img.shields.io/badge/SQL-SQLite-003B57?logo=sqlite&logoColor=white) ![Excel](https://img.shields.io/badge/Excel-Dashboard-217346?logo=microsoftexcel&logoColor=white) ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?logo=jupyter&logoColor=white) ![pandas](https://img.shields.io/badge/pandas-150458?logo=pandas&logoColor=white) ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikitlearn&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![SQL](https://img.shields.io/badge/SQL-003B57?logo=sqlite&logoColor=white) ![Excel](https://img.shields.io/badge/Excel-217346?logo=microsoftexcel&logoColor=white)
 
-**SQL · Python · Excel** end-to-end analysis of ~100k real orders from Olist, a Brazilian online marketplace (Sep 2016 to Aug 2018, 9 linked tables).
+An analysis of ~100k orders from Olist, a Brazilian online marketplace, between September 2016 and August 2018. I used Python to clean the data, SQL for most of the analysis, and Excel for the final dashboard.
 
-> **The headline:** delivery is what drives satisfaction. A late order averages **2.27 stars** vs **4.29** on time, and **62%** of late orders get a 1-2 star review. On top of that, **97% of customers never buy a second time**, so growth has been bought through acquisition, not loyalty.
+The short version: delivery is what makes or breaks a review. Late orders average 2.3 stars against 4.3 for on-time ones. And almost nobody comes back: 97% of customers only ever placed one order.
 
 ![Excel dashboard](reports/figures/10_excel_dashboard.png)
 
----
+## Questions I wanted to answer
 
-## Business questions
-
-1. How is the business growing, and when do customers buy?
-2. Do customers come back? Which customers are worth the most (RFM)?
+1. How is the business growing, and when do people buy?
+2. Do customers come back, and which ones are worth the most?
 3. What causes bad reviews: the product or the delivery?
 4. Which states, categories and sellers need attention?
+5. Which customer segments bring in the most revenue, and which are about to churn?
 
-## Headline numbers
+## Main numbers
 
-| Metric | Value |
-|---|---|
-| Orders (excl. canceled/unavailable) | 98,207 |
-| Unique customers | 94,990 |
-| Gross revenue (items + freight) | R$ 15.74M |
-| Average order value | R$ 160 |
-| Delivered late (vs promised date) | 6.8% |
-| Average review | 4.12 / 5 |
-| Customers with 2+ orders | 3.0% |
-| Revenue growth, Jan-Aug 2018 vs Jan-Aug 2017 | +140% |
+- 98,207 orders (excluding canceled / unavailable) from 94,990 customers
+- R$ 15.74M in revenue (items + freight), average order R$ 160
+- 6.8% of orders arrived after the promised date
+- Average review 4.12 / 5
+- Only 3.0% of customers ordered more than once
+- Revenue for Jan-Aug 2018 was up 140% on Jan-Aug 2017
 
-## Key findings and recommendations
+## What I found
 
-| # | Finding | Evidence | Recommendation |
-|---|---|---|---|
-| 1 | **Late delivery destroys ratings.** Even 1-3 days late drops the average from 4.1 to 3.3; 4+ days late, 68-80% of reviews are 1-2 stars. | `review_by_delivery_delay`; Mann-Whitney p < 0.001; days late is the strongest driver in a logistic model (AUC 0.74) | Pad delivery estimates in slow lanes, send proactive delay alerts, and rank sellers by on-time rate. |
-| 2 | **Almost no repeat business.** 97% of customers order once; in any month only ~0.3% of a cohort buys again. | `repeat_purchase_distribution`, `cohort_retention` | Second-order programme: a post-delivery coupon within 30 days, category-based reminders. Every +1pp in repeat rate is about 950 extra orders, or roughly R$ 150k. |
-| 3 | **At Risk customers hold the most revenue.** "At Risk" (22% of customers) holds **40% of revenue**, and with "Potential Loyalists" (15%, 28%), 38% of customers make up 68% of revenue. **79% of customers** carry the churn flag (1 order, > 90 days silent). | `sql/05_rfm_segmentation.sql`, [1-page recommendation](reports/RFM_recommendation.md) | Value-ranked win-back for the 29,006 high-value flagged customers (55% of revenue); second-order programme for new buyers. |
-| 4 | **Multi-seller orders rate much lower** (2.86 vs 4.17), since they arrive as separate parcels. | `multi_seller_orders` | Consolidate shipments or set expectations at checkout. |
-| 5 | **The North and Northeast are underserved.** AL, MA, SE, CE and PA wait 21-25 days (SP: 9), pay freight worth 43-54% of the item price, and rate lowest. | `customers_by_state` | Regional fulfilment hubs and carriers; freight subsidies on high-value categories. |
-| 6 | **Seller revenue is concentrated.** The top 10% of sellers carry 68% of revenue. 38 sellers with 50+ orders are "at risk" (rating < 3.5 or > 15% late). | `seller_concentration`, `seller_scorecard` | Coach or demote at-risk sellers; protect star sellers. |
-| 7 | **Late-delivery spikes** came in Nov-2017 (Black Friday) and Feb-Mar 2018 (up to ~19% late). | `monthly_trend` | Add carrier capacity before Q4 and the post-Carnival period. |
+**Late deliveries kill ratings.** Even 1-3 days late drops the average review from 4.1 to 3.3, and once an order is 4+ days late, 68-80% of reviews are 1 or 2 stars. A Mann-Whitney test confirms the gap (p < 0.001), and in a logistic regression on order features, days late was the strongest predictor of a bad review (AUC 0.74). Late-delivery rates spiked in Nov 2017 (Black Friday) and again in Feb-Mar 2018, when they reached 19%.
 
-## What each tool does
+**There's almost no repeat business.** 97% of customers bought once. In any given month after their first order, only around 0.3% of a cohort buys again.
 
-| Layer | Files | What it shows |
-|---|---|---|
-| **Python ETL** | [`src/etl.py`](src/etl.py) | Loads 9 CSVs, fixes types, deduplicates reviews, translates categories, collapses 1M geolocation rows to one point per zip code, builds a **SQLite** database with indexes, and writes a [data-quality report](outputs/data_quality_report.csv). |
-| **SQL** | [`sql/`](sql) (25 queries) | Analytical views (order-grain fact view), **CTEs**, **window functions** (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`), cohort retention, RFM base, Pareto, seller segmentation with `CASE`. Run by [`src/run_sql.py`](src/run_sql.py), and results land in [`outputs/sql_results/`](outputs/sql_results). |
-| **Python analysis** | [`notebooks/olist_analysis.ipynb`](notebooks/olist_analysis.ipynb) (source [`src/analysis.py`](src/analysis.py)) | RFM segmentation with actions, cohort heatmap, a statistical test (Mann-Whitney U), a logistic-regression driver model for negative reviews, a state regression, a customer map, and 9 charts. |
-| **Excel** | [`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) | One-page dashboard with KPI tiles, 7 native charts, and an **interactive state lookup** (dropdown + `INDEX/MATCH`). Data tabs use Excel Tables, **430+ live formulas** (`SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `SUMPRODUCT`, `RANK`, MoM growth, running totals, Pareto classes), and conditional formatting (data bars, colour scales). |
+**At Risk customers hold the most revenue.** In the RFM segmentation, the "At Risk" group (high spenders who haven't been back in a while) is 22% of customers but 40% of revenue. Add "Potential Loyalists" and 38% of customers account for 68% of revenue.
+
+**Orders split across sellers rate worse.** Orders with items from 2+ sellers average 2.86 stars vs 4.17, probably because they arrive as separate parcels.
+
+**The North and Northeast are underserved.** Customers in AL, MA, SE, CE and PA wait 21-25 days (SP: 9), pay freight worth 43-54% of the item price, and give the lowest ratings.
+
+**Seller revenue is concentrated.** The top 10% of sellers make 68% of revenue, and 38 sellers with 50+ orders either rate below 3.5 or deliver late more than 15% of the time.
+
+What I'd do about it:
+- Make delivery estimates realistic on slow routes, warn customers early when an order is running late, and rank sellers by on-time rate.
+- Run a second-order programme (a coupon after delivery, reminders in the customer's category). Each extra 1% of customers making a second order is roughly 950 orders, or R$ 150k.
+- Prioritise win-back for high-value customers who've gone quiet (details below).
+- Look at regional carriers or fulfilment partners for the North/Northeast.
 
 ## RFM segmentation and churn risk
 
-**Business question:** which customer segments generate the most revenue, and which are at risk of churning?
-
-| Deliverable | File |
-|---|---|
-| SQL script with the RFM calculations, segment labels and churn flag | [`sql/05_rfm_segmentation.sql`](sql/05_rfm_segmentation.sql) |
-| Excel segment summary, revenue-per-segment chart, churn tiers and cut-offs | `RFM_Segments` tab in [`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) |
-| Bar chart: revenue per segment and churn tiers | [`reports/figures/04_rfm_segments.png`](reports/figures/04_rfm_segments.png) |
-| 1-page written recommendation | [`reports/RFM_recommendation.md`](reports/RFM_recommendation.md) |
+I scored every customer on Recency, Frequency and Monetary value in SQL ([`sql/05_rfm_segmentation.sql`](sql/05_rfm_segmentation.sql)) and wrote up the results in a [one-page recommendation](reports/RFM_recommendation.md). The segment summary and chart are also in the `RFM_Segments` tab of the workbook.
 
 ![RFM segments](reports/figures/04_rfm_segments.png)
 
-**How it avoids the usual mistakes**
-- **Customer level, not order level:** every metric is aggregated per `customer_unique_id`. In Olist, `customer_id` is re-issued for every order, so grouping by it would turn every order into a "customer".
-- **Thresholds come from the data:** R and M scores are `NTILE(5)` quintiles. The actual cut-offs are published by the `rfm_cutoffs` query: Recency 99 / 183 / 274 / 389 days, Monetary R$ 55 / 88 / 133 / 209. F uses business logic (1 / 2 / 3+ orders) because 97% of customers buy once.
-- **Findings, not descriptions:** "At Risk (22% of customers) holds 40% of revenue", not "At Risk customers spend a lot".
-- **Cleaned first:** canceled and unavailable orders and orders with no items are removed. Recency is measured from the day after the last *valid* order (2018-09-04).
+| Segment | Customers | % of customers | % of revenue | Avg spend |
+|---|---:|---:|---:|---:|
+| At Risk | 21,092 | 22.2% | 40.2% | R$ 300 |
+| Potential Loyalists | 14,604 | 15.4% | 28.1% | R$ 303 |
+| Lost | 22,912 | 24.1% | 10.6% | R$ 73 |
+| New Customers | 22,156 | 23.3% | 10.3% | R$ 73 |
+| About to Sleep | 11,332 | 11.9% | 5.2% | R$ 72 |
+| Loyal | 1,653 | 1.7% | 3.1% | R$ 299 |
+| Champions | 1,234 | 1.3% | 2.5% | R$ 321 |
 
-**Churn flag (stretch goal):** `Recency > 90 days AND Frequency = 1` flags 79.0% of customers (76.8% of revenue). The data ends in 2018 and almost nobody buys twice, so the flag alone is too broad. It is therefore split by value: **29,006 high-value flagged customers (M score 4-5) hold R$ 8.73M, 55.5% of all revenue**, and they are the priority list.
+A few notes on how I built it:
+- Everything is at customer level using `customer_unique_id`. Olist gives the same person a new `customer_id` for every order, so grouping by that would treat every order as a separate customer.
+- Recency and Monetary scores are quintiles of the actual data (`NTILE(5)`), so the cut-offs aren't made up: 99 / 183 / 274 / 389 days for recency and R$ 55 / 88 / 133 / 209 for spend. Frequency can't be split that way because 97% of people bought once, so it's just 1, 2 or 3+ orders.
+- Canceled and unavailable orders are removed first, and recency is measured from 2018-09-04, the day after the last valid order.
 
-## Data
-The 9 original CSVs are in [`data/raw/`](data/raw), unchanged.
-Source: [Brazilian E-Commerce Public Dataset by Olist (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), CC BY-NC-SA 4.0.
+For churn, I flagged customers with one order and no purchase in the last 90 days. That catches 79% of customers, which is too many to act on, because the data stops in 2018 and so few people ever reorder. Splitting the flag by spend gives a usable list: 29,006 high-value flagged customers who together account for R$ 8.73M, or 55.5% of all revenue.
+
+## The data
+
+The 9 original CSVs from [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (CC BY-NC-SA 4.0) are in [`data/raw/`](data/raw), untouched. The cleaned versions of 8 of them are in [`data/cleaned/`](data/cleaned).
 
 | File | Rows |
 |---|---:|
@@ -88,146 +84,81 @@ Source: [Brazilian E-Commerce Public Dataset by Olist (Kaggle)](https://www.kagg
 | `product_category_name_translation.csv` | 71 |
 | `olist_geolocation_dataset.csv` | 1,000,163 |
 
-## Data model
+How the tables connect:
 
 ```
-customers (customer_id, customer_unique_id) 1──* orders 1──* order_items *──1 products ── category_translation
-                                                  │  1──* payments        *──1 sellers
-                                                  └─ 1──1 reviews (deduplicated)
-geolocation (zip prefix -> lat/lng) joins customers and sellers
+customers 1──* orders 1──* order_items *──1 products ── category_translation
+                  │  1──* payments          *──1 sellers
+                  └─ 1──1 reviews
+geolocation (zip code -> lat/lng) joins to customers and sellers
 ```
-`customer_id` is created per order. The real person is `customer_unique_id`, so every retention metric uses that key. Mixing them up is a common mistake with this dataset, and it would make the repeat rate look like 0%.
 
 ## Data cleaning
 
-All cleaning happens in [`src/etl.py`](src/etl.py). The original files in [`data/raw/`](data/raw) are never modified. The cleaned tables are written both to the SQLite database and as CSV files in [`data/cleaned/`](data/cleaned), so you can open them directly in Excel or pandas. Every check is also logged in [`outputs/data_quality_report.csv`](outputs/data_quality_report.csv) and the `Data_Quality` tab of the workbook.
+All of this happens in [`src/etl.py`](src/etl.py). The raw files are never modified. The cleaned tables go into a SQLite database and into `data/cleaned/` as CSVs. The checks are saved in [`outputs/data_quality_report.csv`](outputs/data_quality_report.csv) and the `Data_Quality` tab of the workbook.
 
-### Raw data at a glance
-
-| File | Rows | Key | Issues found |
-|---|---:|---|---|
-| `olist_customers_dataset.csv` | 99,441 | `customer_id` | Only 96,096 real people; untidy city names |
-| `olist_orders_dataset.csv` | 99,441 | `order_id` | 4,908 missing timestamps; 8 "delivered" orders with no delivery date |
-| `olist_order_items_dataset.csv` | 112,650 | `order_id` + `order_item_id` | 775 orders have no items |
-| `olist_order_payments_dataset.csv` | 103,886 | `order_id` + `payment_sequential` | 3 rows `not_defined`; split payments |
-| `olist_order_reviews_dataset.csv` | 99,224 | `review_id` | 814 duplicate ids; 547 orders with >1 review |
-| `olist_products_dataset.csv` | 32,951 | `product_id` | 610 without category; misspelled column names |
-| `olist_sellers_dataset.csv` | 3,095 | `seller_id` | Untidy city names |
-| `product_category_name_translation.csv` | 71 | `product_category_name` | 2 categories missing; BOM at start of file |
-| `olist_geolocation_dataset.csv` | 1,000,163 | none | 261,831 exact duplicates; 42 points outside Brazil |
-
-### Cleaning summary, file by file
-
-| File | Problem found | What was done |
+| File | Problem | What I did |
 |---|---|---|
-| **customers** | 99,441 `customer_id`s but only 96,096 real people: a new id is created for every order. | All customer and retention numbers use `customer_unique_id`. Without this, nobody would ever look like a repeat buyer. City names trimmed and title-cased. |
-| **orders** | Missing dates: 160 approval, 1,783 handed to carrier, 2,965 delivered. 8 orders say "delivered" but have no delivery date. | Text dates converted to real dates. An order counts as delivered only if its status is `delivered` **and** it has a date. Added `delivery_days`, `estimated_days`, `days_late` (vs the promised date), `is_late` and `purchase_month`. |
-| **order_items** | 775 orders (mostly canceled or unavailable) have no items. | Kept, but they add no revenue. Revenue = item price + freight, excluding canceled and unavailable orders. |
-| **payments** | 3 rows with type `not_defined`. Some orders are split across several payments. | The 3 rows are removed. Payments are summed per order, and the method carrying the largest amount is recorded as the main one. |
-| **reviews** | 814 duplicate `review_id`s; 547 orders with more than one review. 58k reviews have no text comment (normal). | Kept the latest review per order, leaving 98,673. Added a `has_comment` flag. |
-| **products** | 610 products with no category. 2 categories missing from the translation file. Misspelled column names (`lenght`). | Missing categories set to `unknown`. Translated `pc_gamer` and `portateis_cozinha...` by hand. Fixed the column names. |
-| **category translation** | The file starts with an invisible character (BOM). | Read with `utf-8-sig` so the first column name comes through correctly. |
-| **sellers** | Untidy city names | Trimmed and title-cased |
-| **geolocation** | 1,000,163 rows: 261,831 exact duplicates, 42 points outside Brazil, many points per zip code | Points outside Brazil removed, then averaged to one point per zip code, leaving 19,010 rows. Used for the customer map. |
-| **all files** | Zip codes like `01037` lose their leading zero when read as numbers. | Read as text. |
-| **time range** | Sep-Dec 2016 and Sep-Oct 2018 have very few orders. | Trend charts use Jan 2017 to Aug 2018 only. |
+| customers | 99,441 `customer_id`s but only 96,096 actual people (new id per order) | Used `customer_unique_id` for all customer metrics; tidied city names |
+| orders | 160 missing approval dates, 1,783 missing carrier dates, 2,965 missing delivery dates; 8 orders marked "delivered" with no delivery date | Converted dates; only counted an order as delivered if it has a delivery date; added delivery-time columns |
+| order_items | 775 orders have no items (almost all canceled / unavailable) | Kept them, but they add no revenue |
+| payments | 3 rows with type `not_defined`; some orders paid in several parts | Dropped the 3 rows; summed payments per order |
+| reviews | 814 duplicate review IDs; 547 orders with more than one review | Kept the latest review per order (98,673 left) |
+| products | 610 with no category; 2 categories missing from the translation file; columns misspelled (`lenght`) | Set missing categories to `unknown`; translated the 2 by hand; fixed column names |
+| category translation | File starts with a hidden byte-order mark | Read with `utf-8-sig` |
+| sellers | Untidy city names | Trimmed and title-cased |
+| geolocation | 1,000,163 rows, 261,831 exact duplicates, 42 points outside Brazil | Removed points outside Brazil and averaged to one point per zip code (19,010 rows) |
+| all files | Zip codes like `01037` lose the leading zero if read as numbers | Read them as text |
 
-### Step by step
+Some more detail on the decisions:
 
-**1. Read everything with the right types**
-- Zip code prefixes (`01037`) are read as **text**, so leading zeros are not lost.
-- All date columns (purchase, approval, carrier, delivery, estimated delivery, shipping limit, review dates) are parsed into real datetimes; unparseable values become null instead of failing.
-- The translation file starts with an invisible byte-order mark, so it is read with `utf-8-sig` to keep the first column name correct.
-
-**2. Customers: separate the order id from the person**
-- `customer_id` is generated **per order** (99,441 ids), while `customer_unique_id` is the real person (96,096).
-- Every customer, repeat-purchase, cohort and RFM metric uses `customer_unique_id`. Using `customer_id` would make every customer look like a one-time buyer.
-- City names trimmed and title-cased (`sao paulo` to `Sao Paulo`).
-
-**3. Orders: define "delivered" and add delivery metrics**
-- Missing timestamps are left as null, not filled in: 160 approval dates, 1,783 carrier dates and 2,965 customer delivery dates. Most belong to canceled, unavailable or in-transit orders.
-- An order counts as **delivered** only if its status is `delivered` **and** it has a delivery date. That excludes 8 inconsistent orders.
-- New columns:
+- **Dates:** all date columns are parsed as datetimes; anything unparseable becomes blank instead of breaking the load.
+- **New order columns:**
   - `delivery_days`: purchase to delivery
   - `estimated_days`: purchase to promised date
-  - `days_late`: delivery date minus promised date, in whole days (positive = late)
-  - `is_late`: set only for delivered orders
-  - `purchase_month`: for trends and cohorts
+  - `days_late`: delivery minus promised date, in days; positive means late
+  - `is_late`: set for delivered orders only
+  - `purchase_month`
+- **Missing dates** are left blank rather than filled in. Most belong to canceled, unavailable or still-shipping orders.
+- **Revenue** is item price + freight, excluding canceled and unavailable orders. Category revenue uses item price only.
+- **Payments:** when an order is split across methods (e.g. card + voucher), the one carrying the largest amount counts as the main payment type. The 9 payments of R$ 0.00 are vouchers, so I kept them.
+- **Review comments:** 58,247 reviews have no comment. That's normal, since only the score is required, so I added a `has_comment` flag instead of dropping them.
+- **Products:**
+  - Translations: `pc_gamer` stays `pc_gamer`, and `portateis_cozinha_e_preparadores_de_alimentos` becomes `portable_kitchen_food_processors`.
+  - Uncategorised products are kept as `unknown` so their sales still count.
+  - The 2 products with no weight or dimensions are kept, because those columns aren't used.
+- **Geolocation:** Brazil's bounding box is latitude -34 to 5.5 and longitude -74 to -34. For each zip code, the state comes from its first point.
+- **Duplicate checks:** customers, orders, order items, payments, products and sellers had no duplicate keys or duplicate rows.
+- **Database:** dates are stored as `YYYY-MM-DD HH:MM:SS` text so SQLite's date functions work, and the join keys are indexed.
 
-**4. Order items: define revenue**
-- Revenue = item `price` + `freight_value`, summed per order.
-- Canceled and unavailable orders are excluded from revenue and KPIs. The 775 orders with no items (almost all canceled or unavailable) therefore add nothing.
-- Category-level revenue uses item price only, without freight.
+Rules I applied in the analysis:
+- **Delivery and review metrics:** delivery metrics only use delivered orders, and review metrics only use orders that have a review.
+- **Ratios:** guarded against dividing by zero (`NULLIF` in SQL).
+- **RFM:** only includes customers whose orders have items (94,983 people).
+- **Review model:** rows with missing inputs are dropped.
+- **Time windows:**
+  - Sep-Dec 2016 and Sep-Oct 2018 have very few orders, so trend and cohort charts use Jan 2017 to Aug 2018.
+  - Year-on-year comparisons use Jan-Aug of both years.
+- **Same-day repeat orders:** 896 customers placed a "second" order on the same day as their first. These are probably split checkouts, so the 3% repeat rate is, if anything, a bit generous.
 
-**5. Payments**
-- 3 rows with `payment_type = not_defined` removed.
-- Orders paid with several methods (for example card + voucher) are summed per order. The method carrying the largest amount is recorded as the order's main payment type, along with the maximum number of installments.
+## SQL
 
-**6. Reviews: one review per order**
-- 814 `review_id`s appear more than once, and 547 orders have more than one review.
-- Kept the **most recent answer per order**, leaving 98,673 reviews, so no order is double-counted in review averages.
-- 58,247 reviews have no text comment. That is normal (the score is mandatory, text is optional), so a `has_comment` flag is added instead of dropping them.
+[`src/run_sql.py`](src/run_sql.py) runs the files in [`sql/`](sql) in order and saves each query's result as a CSV in [`outputs/sql_results/`](outputs/sql_results).
 
-**7. Products and categories**
-- Misspelled source columns fixed: `product_name_lenght` and `product_description_lenght` become `..._length`.
-- 2 Portuguese categories missing from the translation file were translated by hand:
-  - `pc_gamer` becomes `pc_gamer`
-  - `portateis_cozinha_e_preparadores_de_alimentos` becomes `portable_kitchen_food_processors`
-- 610 products with no category are labelled `unknown`, not dropped, so their sales still count.
-- The English name is joined onto every product as a single `category` column, so SQL never has to deal with Portuguese names.
-- 2 products with no weight or dimensions are kept, since those columns aren't used in the analysis.
-
-**8. Sellers**
-- City names trimmed and title-cased.
-
-**9. Geolocation: 1M rows down to one point per zip code**
-- The raw file has many GPS points per zip prefix, including 261,831 exact duplicates.
-- Points outside Brazil's bounding box are removed: latitude -34 to 5.5, longitude -74 to -34. That drops 42 points.
-- Remaining points are averaged into **one lat/lng per zip prefix**, leaving 19,010 rows. These are used for the customer map. The state is taken from the first point for each zip.
-
-**10. Load into SQLite**
-- 8 clean tables written to `data/olist.db` **and** to `data/cleaned/*.csv` (customers, orders, order_items, payments, reviews, products, sellers, geolocation), with 12 indexes in the database on the join keys (order, customer, product, seller, zip) so the SQL layer runs in seconds.
-- Dates are stored as `YYYY-MM-DD HH:MM:SS` text, the format SQLite's date functions (`DATE`, `strftime`, `julianday`) expect.
-- The data-quality report is measured on the **raw** files, before any cleaning, so it shows the problems as they arrived.
-
-**11. Checks that found nothing to fix**
-- No duplicate keys in customers, orders, order items, payments, products or sellers.
-- No fully duplicated rows in any table except geolocation.
-- 9 payments of R$ 0.00 are vouchers, not errors, so they are kept.
-
-**12. Analysis-level rules (in SQL and Python)**
-- **Which orders count:** revenue, KPIs, customer and category metrics exclude `canceled` and `unavailable` orders.
-- **Delivery metrics** (delivery days, late rate, review vs delay) use delivered orders only.
-- **Review metrics** use only orders that have a review.
-- **No divide-by-zero:** freight-to-price ratios use `NULLIF(price, 0)` in SQL and `replace(0, NaN)` in Python.
-- **RFM** includes only customers whose orders have items (94,983 people). Recency is measured from the day after the last *valid* order (reference date 2018-09-04).
-- **Review-driver model:** rows missing any model input are dropped before training.
-- **Time window:** Sep-Dec 2016 and Sep-Oct 2018 have very few orders, so trend and cohort charts use **Jan 2017 to Aug 2018**.
-- **Like-for-like growth:** year-on-year comparisons use Jan-Aug of both years.
-- **Same-day "second orders":** 896 customers placed a second order on the same day as their first. These are probably split checkouts rather than true loyalty, so the 3% repeat rate is, if anything, slightly optimistic.
-
-## SQL analysis
-
-All SQL runs on the SQLite database built by the ETL. [`src/run_sql.py`](src/run_sql.py) executes the files in [`sql/`](sql) in order and saves each named query's result to [`outputs/sql_results/`](outputs/sql_results).
-
-```bash
-python src/run_sql.py
-```
-
-| File | Queries |
+| File | What's in it |
 |---|---|
-| [`00_views.sql`](sql/00_views.sql) | Reusable views: `v_orders` (one row per order with value, payment, review and delivery fields) and `v_items` (one row per item with category and seller) |
-| [`01_business_kpis.sql`](sql/01_business_kpis.sql) | KPI summary, monthly trend (MoM growth, 3-month average, running total), order status mix, weekday x hour heatmap, payment mix, installments vs order value |
-| [`02_customers_retention.sql`](sql/02_customers_retention.sql) | Repeat-purchase distribution, days to second order, monthly cohort retention, performance by state |
-| [`03_delivery_reviews.sql`](sql/03_delivery_reviews.sql) | Review score by delivery delay, review distribution, late vs on time, multi-seller orders, worst seller-to-customer routes |
-| [`04_products_sellers.sql`](sql/04_products_sellers.sql) | Category Pareto, category growth 2018 vs 2017, seller scorecard and segments, seller revenue concentration |
-| [`05_rfm_segmentation.sql`](sql/05_rfm_segmentation.sql) | Customer-level RFM table, data-driven cut-offs, segment labels (Champions, Loyal, Potential Loyalists, New Customers, At Risk, About to Sleep, Lost), segment summary, churn flag and value-ranked churn tiers, At Risk revenue by state |
+| [`00_views.sql`](sql/00_views.sql) | Two views used everywhere else: one row per order (`v_orders`) and one row per item (`v_items`), plus the analysis-ready orders table |
+| [`01_business_kpis.sql`](sql/01_business_kpis.sql) | KPI summary, monthly trend with MoM growth / 3-month average / running total, order status, weekday × hour, payment mix |
+| [`02_customers_retention.sql`](sql/02_customers_retention.sql) | Repeat purchases, days to second order, cohort retention, state performance |
+| [`03_delivery_reviews.sql`](sql/03_delivery_reviews.sql) | Reviews by delivery delay, late vs on time, multi-seller orders, most delayed routes |
+| [`04_products_sellers.sql`](sql/04_products_sellers.sql) | Category Pareto, category growth 2017 vs 2018, seller scorecard, seller concentration |
+| [`05_rfm_segmentation.sql`](sql/05_rfm_segmentation.sql) | RFM scores, cut-offs, segments, churn flag, At Risk revenue by state |
 
-**Techniques used:** multi-table joins, views, CTEs, `CASE` bucketing, window functions (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`, `ROW_NUMBER`), `HAVING`, `UNION ALL`, and date maths with `julianday` / `strftime`.
+Mostly CTEs and window functions (`LAG`, `RANK`, `NTILE`, `PERCENT_RANK`, `ROW_NUMBER`, running totals), plus `CASE` bucketing and date maths with `julianday` / `strftime`.
 
-**First results from SQL**
+Here's the query result that led to the main finding:
 
-| Delivery vs promised date | Orders | Avg review | 1-2 star reviews |
+| Delivered vs promised date | Orders | Avg review | 1-2 star reviews |
 |---|---:|---:|---:|
 | 10+ days early | 61,523 | 4.32 | 8.9% |
 | 0-4 days early / on time | 7,888 | 4.12 | 11.4% |
@@ -235,99 +166,53 @@ python src/run_sql.py
 | 4-7 days late | 1,748 | 2.10 | 67.7% |
 | 8-14 days late | 1,446 | 1.67 | 80.2% |
 
-- 97% of customers placed only one order.
-- The top 10% of sellers generate 68% of item revenue.
+## Python
 
-## Python analysis
+The notebook [`notebooks/olist_analysis.ipynb`](notebooks/olist_analysis.ipynb) picks up the SQL results and does the parts that are easier in Python:
+- the Mann-Whitney test on late vs on-time reviews
+- the logistic regression for bad reviews
+- the state-level regression of review score on delivery time
+- the cohort heatmap, the customer map and the rest of the charts
 
-[`notebooks/olist_analysis.ipynb`](notebooks/olist_analysis.ipynb) reads the SQL results and the database, adds statistics, segmentation and a simple model, and saves the charts to [`reports/figures/`](reports/figures). The notebook is generated from [`src/analysis.py`](src/analysis.py) by [`src/make_notebook.py`](src/make_notebook.py), so the script and the notebook never drift apart.
-
-```bash
-python src/make_notebook.py
-```
-
-| Analysis | Method | Result |
-|---|---|---|
-| Growth | Monthly revenue with a 3-month average | Revenue Jan-Aug 2018 was **+140%** vs Jan-Aug 2017; Nov-2017 (Black Friday) is the peak month |
-| Late vs on-time reviews | Mann-Whitney U test | **4.29 vs 2.27** stars, p < 0.001 |
-| What predicts a 1-2 star review | Logistic regression on 8 order features (standardised) | Test ROC-AUC **0.74**; days late and total delivery time are the strongest drivers |
-| Customer value | RFM segments from `sql/05_rfm_segmentation.sql`, with recommended actions | At Risk (22% of customers) holds 40% of revenue; 79% of customers carry the churn flag |
-| Regions | State-level regression of review on delivery days | Slower states rate lower |
-
-### RFM segments
-
-| Segment | Customers | Share of customers | Share of revenue | Avg spend (R$) | Recommended action |
-|---|---:|---:|---:|---:|---|
-| At Risk | 21,092 | 22.2% | 40.2% | 300 | High-touch win-back: personalised offer + survey |
-| Potential Loyalists | 14,604 | 15.4% | 28.1% | 303 | Second-order coupon within 30 days of delivery |
-| Lost | 22,912 | 24.1% | 10.6% | 73 | Suppress from paid channels; seasonal campaigns only |
-| New Customers | 22,156 | 23.3% | 10.3% | 73 | Onboarding, cross-sell bundles, free-shipping nudges |
-| About to Sleep | 11,332 | 11.9% | 5.2% | 72 | Low-cost email reactivation |
-| Loyal | 1,653 | 1.7% | 3.1% | 299 | Personalised win-back offers |
-| Champions | 1,234 | 1.3% | 2.5% | 321 | VIP perks, referral programme |
-
-Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_segment_summary.csv). Model coefficients: [`data/processed/negative_review_drivers.csv`](data/processed/negative_review_drivers.csv).
-
-### Charts
+It's generated from [`src/analysis.py`](src/analysis.py) by [`src/make_notebook.py`](src/make_notebook.py).
 
 | | |
 |---|---|
 | ![Monthly revenue](reports/figures/01_monthly_revenue.png) | ![Review vs delay](reports/figures/05_review_vs_delay.png) |
-| ![Cohort retention](reports/figures/03_cohort_retention.png) | ![RFM segments](reports/figures/04_rfm_segments.png) |
-| ![Negative review drivers](reports/figures/06_negative_review_drivers.png) | ![States](reports/figures/07_states.png) |
-| ![Top categories](reports/figures/09_top_categories.png) | ![Customer map](reports/figures/08_customer_map.png) |
-| ![Orders by weekday and hour](reports/figures/02_weekday_hour_heatmap.png) | |
+| ![Cohort retention](reports/figures/03_cohort_retention.png) | ![Negative review drivers](reports/figures/06_negative_review_drivers.png) |
+| ![States](reports/figures/07_states.png) | ![Top categories](reports/figures/09_top_categories.png) |
+| ![Customer map](reports/figures/08_customer_map.png) | ![Orders by weekday and hour](reports/figures/02_weekday_hour_heatmap.png) |
 
-## Excel dashboard
+## Excel
 
-[`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) is built by [`src/build_excel.py`](src/build_excel.py) from the SQL and Python outputs. The data tabs hold the query results as values; every KPI, ratio, growth rate, lookup and summary on top of them is a **live Excel formula** (441 formulas, 0 errors).
+[`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) has a one-page dashboard, built from 7 charts and KPI tiles. It also has a dropdown where you pick a state and see its numbers next to the national ones (`INDEX`/`MATCH`).
 
-![Excel dashboard](reports/figures/10_excel_dashboard.png)
+The other tabs hold the query results, with formulas on top for shares, growth rates, rankings, Pareto classes and segment summaries (`SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `SUMPRODUCT`, `RANK`):
+- **Analysis:** Monthly, States, Categories, Delivery_Reviews, Retention, RFM_Segments, Sellers, Payments
+- **Checks:** Data_Quality
+- **Orders data:**
+  - Orders_Raw is the orders file exactly as downloaded (99,441 rows, 8 columns).
+  - Orders_Clean is the version the analysis actually uses (98,199 rows, 19 columns). Canceled, unavailable and empty orders are removed, and each order is joined with the real customer, location, order value, payment, review and delivery times.
 
-| Tab | What it shows | Excel features |
-|---|---|---|
-| **Dashboard** | 8 KPI tiles, 7 charts, key insights | Native charts; tiles are formulas over the data tabs |
-| | **State lookup**: pick a state in the yellow cell | Data-validation dropdown + `INDEX`/`MATCH`; compares the state with the national late rate |
-| **Monthly** | Orders, revenue, AOV, MoM growth, 3-month average, running total | `IFERROR`, `AVERAGE`, `SUM` with expanding ranges; data bars |
-| **States** | 27 states: revenue, freight, delivery days, late rate, review | Revenue share and `RANK`; colour scales |
-| **Categories** | 74 categories with Pareto A/B/C classes | Cumulative share with `SUM`; nested `IF`; low ratings highlighted |
-| **Delivery_Reviews** | Review by delay band, score distribution, late vs on time, worst routes | `INDEX`/`MATCH` for the review gap |
-| **Retention** | Repeat purchases and the monthly cohort retention matrix | Weighted average with `SUMPRODUCT` / `SUMIFS`; heatmap |
-| **RFM_Segments** | 7 segments with recommended actions, churn-risk tiers, score cut-offs, At Risk revenue by state, revenue-per-segment chart | Share and total formulas; data bars; at-risk segments highlighted |
-| **Sellers** | 3,053-seller scorecard (filterable) | `COUNTIFS`, `SUMIFS`, `AVERAGEIFS` summary by segment |
-| **Payments** | Payment mix and installments vs order value | Excel Tables |
-| **Data_Quality** | Raw-file checks and cleaning notes | |
-| **Orders_Raw** | `olist_orders_dataset.csv` as downloaded: all 99,441 orders | Excel Table with filters, frozen header |
-| **Orders_Clean** | The same 99,441 orders after cleaning, with the added delivery columns | Excel Table with filters, frozen header |
-
-To rebuild it:
-
-```bash
-python src/build_excel.py
-```
-
-On Windows with Excel installed, `powershell -File src/excel_recalc.ps1 -Png reports/figures/10_excel_dashboard.png` recalculates every formula and renders the dashboard image. Elsewhere, the workbook calculates when it is opened.
-
-## How to run
+## Running it
 
 ```bash
 pip install -r requirements.txt
-python run_all.py          # the 9 raw CSVs are already in data/raw/
+python run_all.py
 ```
-The pipeline runs ETL, then SQL, then the notebook (figures), then Excel. On Windows with Excel installed, it also recalculates the workbook and renders the dashboard image. On other systems, the workbook calculates when you open it.
 
-**Data:** the 9 original CSVs are included unchanged in [`data/raw/`](data/raw) (~120 MB), and the 8 cleaned tables in [`data/cleaned/`](data/cleaned) (~70 MB). Source: [Brazilian E-Commerce Public Dataset by Olist (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), CC BY-NC-SA 4.0.
+`run_all.py` runs the cleaning, the SQL, the notebook and the Excel build in order. On Windows with Excel installed, it also runs [`src/excel_recalc.ps1`](src/excel_recalc.ps1). That script adds the two orders tabs, recalculates the workbook and saves the dashboard image.
 
 ## Project structure
+
 ```
 olist-customer-analytics/
 ├── run_all.py
-├── .gitattributes
-├── src/            etl.py · run_sql.py · analysis.py · make_notebook.py · build_excel.py · excel_recalc.ps1
-├── sql/            00_views · 01_business_kpis · 02_customers_retention · 03_delivery_reviews · 04_products_sellers · 05_rfm_segmentation
+├── src/            etl.py, run_sql.py, analysis.py, make_notebook.py, build_excel.py, excel_recalc.ps1
+├── sql/            00_views ... 05_rfm_segmentation
 ├── notebooks/      olist_analysis.ipynb
 ├── excel/          Olist_Customer_Dashboard.xlsx
-├── outputs/        sql_results/*.csv · data_quality_report.csv
-├── reports/        RFM_recommendation.md · figures/
-└── data/           raw/ (9 original CSVs) · cleaned/ (8 cleaned CSVs) · processed/ (RFM outputs) · olist.db (git-ignored)
+├── outputs/        sql_results/, data_quality_report.csv
+├── reports/        RFM_recommendation.md, figures/
+└── data/           raw/, cleaned/, processed/
 ```

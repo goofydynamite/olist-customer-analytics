@@ -1,50 +1,51 @@
-# Recommendation: protect the At Risk revenue and convert first-time buyers
+# Customer segments and churn risk: recommendation
 
-**To:** Head of CRM / Marketing, Olist · **Data:** 94,983 customers, R$ 15.74M revenue, valid orders Sep 2016 to Sep 2018 · **Method:** [`sql/05_rfm_segmentation.sql`](../sql/05_rfm_segmentation.sql)
+Based on 94,983 Olist customers and R$ 15.74M of revenue (valid orders, Sep 2016 - Sep 2018). The segmentation is in [`sql/05_rfm_segmentation.sql`](../sql/05_rfm_segmentation.sql).
 
-## The answer
+## Summary
 
-**Which segments generate the most revenue?** Two segments of one-time, high-spending customers. **At Risk** customers (22% of customers) hold **40% of revenue**, and **Potential Loyalists** (15%) hold **28%**. Together, 38% of customers account for **68% of revenue**.
+Most of Olist's revenue comes from customers who bought once, spent well, and haven't been back. The "At Risk" segment is 22% of customers but 40% of revenue. "Potential Loyalists", who are recent high spenders, add another 28%. That means 38% of customers bring in 68% of revenue.
 
-**Which are at risk of churning?** **79% of customers (77% of revenue)** match the churn flag: one order and no purchase in over 90 days. The flag is too broad to act on by itself, so we rank it by value. **29,006 high-value flagged customers (30.5% of customers) hold R$ 8.73M, or 55% of all revenue.** They are the priority list.
+On churn: 79% of customers have only one order and nothing in the last 90 days, so that rule alone flags almost everyone. Ranking the flagged customers by how much they spent narrows it to 29,006 high-value customers (30.5% of the base) who account for R$ 8.73M, or 55% of all revenue. That's the list I'd start with.
 
-## Key findings
+## Segments
 
-| Segment | Customers | Share of customers | Share of revenue | Avg spend | Days since last order |
+| Segment | Customers | % of customers | % of revenue | Avg spend | Days since last order |
 |---|---:|---:|---:|---:|---:|
-| At Risk | 21,092 | 22.2% | **40.2%** | R$ 300 | 342 |
-| Potential Loyalists | 14,604 | 15.4% | **28.1%** | R$ 303 | 97 |
+| At Risk | 21,092 | 22.2% | 40.2% | R$ 300 | 342 |
+| Potential Loyalists | 14,604 | 15.4% | 28.1% | R$ 303 | 97 |
 | Lost | 22,912 | 24.1% | 10.6% | R$ 73 | 402 |
 | New Customers | 22,156 | 23.3% | 10.3% | R$ 73 | 96 |
 | About to Sleep | 11,332 | 11.9% | 5.2% | R$ 72 | 226 |
 | Loyal | 1,653 | 1.7% | 3.1% | R$ 299 | 327 |
 | Champions | 1,234 | 1.3% | 2.5% | R$ 321 | 94 |
 
-1. **Repeat buyers barely exist.** Champions and Loyal together are 3.0% of customers and 5.6% of revenue. Olist's revenue rests on one-time purchases, so its growth depends on getting a second order.
-2. **At Risk customers spend 4x more than Lost ones** (R$ 300 vs R$ 73) and rate Olist lower (3.99 vs 4.16 stars). Earlier analysis shows late deliveries are the main driver of low reviews.
-3. **At Risk revenue is concentrated geographically.** SP (R$ 2.11M), RJ (R$ 0.92M) and MG (R$ 0.75M) hold 60% of it. In RJ, At Risk customers rate just **3.73**, the lowest among the top states.
-4. **Potential Loyalists are recent** (97 days on average) and high-value, so the second-order window for them is open now.
+A few things stand out:
+- Repeat buyers (Champions + Loyal) are only 3.0% of customers and 5.6% of revenue. Almost all revenue depends on first purchases.
+- At Risk customers spent about 4x more than Lost ones (R$ 300 vs R$ 73), but they also rated Olist lower (3.99 vs 4.16). Elsewhere in this project, late delivery turned out to be the main cause of low ratings, so some of this churn is probably delivery-related.
+- 60% of At Risk revenue is in three states: SP (R$ 2.11M), RJ (R$ 0.92M) and MG (R$ 0.75M). RJ's At Risk customers have the lowest rating of the large states, at 3.73.
+- Potential Loyalists last ordered 97 days ago on average, so there's still time to get a second order from them.
 
-## Recommendations
+## What I'd do
 
-| # | Action | Target | Illustrative size of the prize |
-|---|---|---|---|
-| 1 | **Win-back campaign** for At Risk: a personalised offer in the customer's last category, plus a "what went wrong?" survey. Start with RJ and orders that were delivered late. | 21,092 customers | Winning back 5% at their average spend ≈ **R$ 316k** |
-| 2 | **Second-order programme** for Potential Loyalists and New Customers: a coupon 7-30 days after delivery and category reminders. | 36,760 customers | 10% making one more average order (R$ 160) ≈ **R$ 588k** |
-| 3 | **Use the value-ranked churn list**, not the raw flag: contact the 29,006 high-value flagged customers first, and send low-cost email only to the 46,016 low-value ones. | 75,022 flagged | Focuses spend on 55% of revenue |
-| 4 | **VIP treatment** for Champions and Loyal: early access, referral rewards, free shipping. | 2,887 customers | Protects the only proven repeat base |
-| 5 | **Fix the cause:** delivery reliability. Late orders average 2.3 stars vs 4.3 on time. | All | Prevents new At Risk customers |
+1. **Win back At Risk customers.** Send a personalised offer based on their last category, with a short "what went wrong?" survey. Start with RJ and with customers whose last order arrived late. If 5% came back and spent their usual R$ 300, that's about R$ 316k.
+2. **Push for a second order.** Potential Loyalists and New Customers (36,760 people) should get a coupon 1-4 weeks after delivery, plus reminders in their category. If 10% placed one more average order (R$ 160), that's about R$ 588k.
+3. **Use the ranked churn list, not the raw flag.** Spend on the 29,006 high-value flagged customers first, and keep the other 46,016 on low-cost email.
+4. **Look after the few repeat customers.** The 2,887 Champions and Loyal customers should get perks like early access, referral rewards and free shipping.
+5. **Fix delivery.** Late orders average 2.3 stars vs 4.3 on time. Every late order makes a future At Risk customer more likely.
 
-The sizes in the last column are scenarios built on assumed response rates (5% and 10%), not forecasts. They should be validated with an A/B test before any budget is committed.
+The revenue figures in 1 and 2 assume 5% and 10% response rates. They're there to show scale, not as forecasts, and should be tested with a small A/B campaign first.
 
 ## How the segments were built
-- **One row per customer:** `customer_unique_id`, because Olist issues a new `customer_id` for every order. Canceled and unavailable orders, and orders with no items, are excluded.
-- **Recency** is measured from 2018-09-04, the day after the last valid order. Quintile cut-offs: 99 / 183 / 274 / 389 days.
-- **Monetary** is total spend. Quintile cut-offs: R$ 55 / 88 / 133 / 209.
-- **Frequency** uses business logic (1 / 2 / 3+ orders), because 97% of customers bought once.
-- **Labels:**
-  - Champions = 2+ orders and R 4-5; Loyal = 2+ orders and R 1-3.
-  - Potential Loyalists = R 4-5 and M 4-5; New Customers = R 4-5 and M 1-3.
-  - At Risk = R 1-3 and M 4-5.
-  - About to Sleep = R 3 and M 1-3; Lost = R 1-2 and M 1-3.
-- **Caveat:** the data ends in 2018, so absolute recency is long for everyone. The ranking between customers is what matters.
+
+- **One row per customer.** I used `customer_unique_id`, because Olist creates a new `customer_id` for every order. Canceled and unavailable orders and orders without items are excluded.
+- **Recency** is days since the last order, measured from 2018-09-04, the day after the last valid order. Scores are quintiles, with cut-offs at 99 / 183 / 274 / 389 days.
+- **Monetary** is total spend. Scores are quintiles, with cut-offs at R$ 55 / 88 / 133 / 209.
+- **Frequency** is 1, 2 or 3+ orders. Quintiles don't work here because 97% of customers bought once.
+- **Segment rules:**
+  - Champions: 2+ orders and recent (R 4-5). Loyal: 2+ orders, not recent.
+  - Potential Loyalists: recent and high spend (M 4-5). New Customers: recent, lower spend.
+  - At Risk: not recent, high spend.
+  - About to Sleep: R 3 and lower spend. Lost: R 1-2 and lower spend.
+
+The data ends in 2018, so everyone's recency looks long in absolute terms. What matters is how customers rank against each other.
