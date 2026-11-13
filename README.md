@@ -142,5 +142,36 @@ All cleaning happens in [`src/etl.py`](src/etl.py). The original files in [`data
 - **Like-for-like growth:** year-on-year comparisons use Jan-Aug of both years.
 - **Same-day "second orders":** 896 customers placed a second order on the same day as their first. These are probably split checkouts rather than true loyalty, so the 3% repeat rate is, if anything, slightly optimistic.
 
+## SQL analysis
+
+All SQL runs on the SQLite database built by the ETL. [`src/run_sql.py`](src/run_sql.py) executes the files in [`sql/`](sql) in order and saves each named query's result to [`outputs/sql_results/`](outputs/sql_results).
+
+```bash
+python src/run_sql.py
+```
+
+| File | Queries |
+|---|---|
+| [`00_views.sql`](sql/00_views.sql) | Reusable views: `v_orders` (one row per order with value, payment, review and delivery fields) and `v_items` (one row per item with category and seller) |
+| [`01_business_kpis.sql`](sql/01_business_kpis.sql) | KPI summary, monthly trend (MoM growth, 3-month average, running total), order status mix, weekday x hour heatmap, payment mix, installments vs order value |
+| [`02_customers_retention.sql`](sql/02_customers_retention.sql) | Repeat-purchase distribution, days to second order, monthly cohort retention, RFM base scores, performance by state |
+| [`03_delivery_reviews.sql`](sql/03_delivery_reviews.sql) | Review score by delivery delay, review distribution, late vs on time, multi-seller orders, worst seller-to-customer routes |
+| [`04_products_sellers.sql`](sql/04_products_sellers.sql) | Category Pareto, category growth 2018 vs 2017, seller scorecard and segments, seller revenue concentration |
+
+**Techniques used:** multi-table joins, views, CTEs, `CASE` bucketing, window functions (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`, `ROW_NUMBER`), `HAVING`, `UNION ALL`, and date maths with `julianday` / `strftime`.
+
+**First results from SQL**
+
+| Delivery vs promised date | Orders | Avg review | 1-2 star reviews |
+|---|---:|---:|---:|
+| 10+ days early | 61,523 | 4.32 | 8.9% |
+| 0-4 days early / on time | 7,888 | 4.12 | 11.4% |
+| 1-3 days late | 1,852 | 3.29 | 32.1% |
+| 4-7 days late | 1,748 | 2.10 | 67.7% |
+| 8-14 days late | 1,446 | 1.67 | 80.2% |
+
+- 97% of customers placed only one order.
+- The top 10% of sellers generate 68% of item revenue.
+
 ## Status
 Work in progress: data cleaning, SQL analysis, Python analysis and an Excel dashboard are being added.

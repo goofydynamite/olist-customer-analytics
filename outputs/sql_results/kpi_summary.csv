@@ -1,0 +1,2 @@
+total_orders,unique_customers,gross_revenue,avg_order_value,avg_items_per_order,pct_delivered,pct_late_of_delivered,avg_delivery_days,avg_review_score,first_order,last_order
+98207,94990,15735527.0,160.24,1.14,98.23,6.77,12.6,4.12,2016-09-04,2018-09-03

@@ -1,0 +1,7 @@
+gap_band,customers
+0 same day,896
+1 <=30 days,571
+2 31-90 days,504
+3 91-180 days,419
+4 181-365 days,413
+5 >365 days,85
