@@ -173,5 +173,46 @@ python src/run_sql.py
 - 97% of customers placed only one order.
 - The top 10% of sellers generate 68% of item revenue.
 
+## Python analysis
+
+[`notebooks/olist_analysis.ipynb`](notebooks/olist_analysis.ipynb) reads the SQL results and the database, adds statistics, segmentation and a simple model, and saves the charts to [`reports/figures/`](reports/figures). The notebook is generated from [`src/analysis.py`](src/analysis.py) by [`src/make_notebook.py`](src/make_notebook.py), so the script and the notebook never drift apart.
+
+```bash
+python src/make_notebook.py
+```
+
+| Analysis | Method | Result |
+|---|---|---|
+| Growth | Monthly revenue with a 3-month average | Revenue Jan-Aug 2018 was **+140%** vs Jan-Aug 2017; Nov-2017 (Black Friday) is the peak month |
+| Late vs on-time reviews | Mann-Whitney U test | **4.29 vs 2.27** stars, p < 0.001 |
+| What predicts a 1-2 star review | Logistic regression on 8 order features (standardised) | Test ROC-AUC **0.74**; days late and total delivery time are the strongest drivers |
+| Customer value | RFM segmentation (Recency and Monetary quintiles, repeat purchase as loyalty signal) | 8 segments, each with a recommended action |
+| Regions | State-level regression of review on delivery days | Slower states rate lower |
+
+### RFM segments
+
+| Segment | Customers | Share of revenue | Avg spend (R$) | Recommended action |
+|---|---:|---:|---:|---|
+| New high-value | 14,611 | 28.2% | 303 | Second-order coupon within 30 days |
+| At risk big spenders | 14,041 | 27.6% | 309 | High-touch win-back; ask why they left |
+| Promising big spenders | 7,045 | 12.5% | 280 | Reminder + loyalty points before they lapse |
+| Hibernating | 22,931 | 10.6% | 73 | Seasonal campaigns only |
+| New low-value | 22,138 | 10.3% | 73 | Cross-sell bundles, free-shipping nudges |
+| Needs attention | 11,330 | 5.2% | 72 | Low-cost email reactivation |
+| Loyal (lapsing) | 1,643 | 3.1% | 299 | Personalised win-back offers |
+| Champions | 1,244 | 2.5% | 321 | VIP perks and referral programme |
+
+Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_segment_summary.csv). Model coefficients: [`data/processed/negative_review_drivers.csv`](data/processed/negative_review_drivers.csv).
+
+### Charts
+
+| | |
+|---|---|
+| ![Monthly revenue](reports/figures/01_monthly_revenue.png) | ![Review vs delay](reports/figures/05_review_vs_delay.png) |
+| ![Cohort retention](reports/figures/03_cohort_retention.png) | ![RFM segments](reports/figures/04_rfm_segments.png) |
+| ![Negative review drivers](reports/figures/06_negative_review_drivers.png) | ![States](reports/figures/07_states.png) |
+| ![Top categories](reports/figures/09_top_categories.png) | ![Customer map](reports/figures/08_customer_map.png) |
+| ![Orders by weekday and hour](reports/figures/02_weekday_hour_heatmap.png) | |
+
 ## Status
 Work in progress: data cleaning, SQL analysis, Python analysis and an Excel dashboard are being added.

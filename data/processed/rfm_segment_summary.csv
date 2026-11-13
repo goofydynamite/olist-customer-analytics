@@ -1,0 +1,9 @@
+segment,customers,revenue,avg_spend,avg_recency_days,avg_orders,avg_review,pct_customers,pct_revenue,recommended_action
+New high-value,14611,4429084.21,303.13,141.11,1.0,4.09,15.38,28.15,Second-order coupon within 30 days; premium onboarding
+At risk big spenders,14041,4340184.62,309.11,444.07,1.0,4.07,14.78,27.58,High-touch win-back; survey why they left
+Promising big spenders,7045,1973541.25,280.13,269.58,1.0,3.83,7.42,12.54,Timely reminder + loyalty points before they lapse
+Hibernating,22931,1670407.59,72.84,446.01,1.0,4.16,24.14,10.62,Suppress from paid channels; occasional seasonal blast
+New low-value,22138,1615978.51,73.0,139.41,1.0,4.22,23.31,10.27,Cross-sell bundles; free-shipping threshold nudges
+Needs attention,11330,816115.64,72.03,269.98,1.0,4.06,11.93,5.19,Low-cost email reactivation
+Loyal (lapsing),1643,490469.44,298.52,371.28,2.08,4.09,1.73,3.12,Win-back with personalised category offers
+Champions,1244,399745.77,321.34,138.75,2.16,4.25,1.31,2.54,"VIP perks, referral programme, early access"
