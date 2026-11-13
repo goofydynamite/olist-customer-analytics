@@ -297,8 +297,8 @@ Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_seg
 | **Sellers** | 3,053-seller scorecard (filterable) | `COUNTIFS`, `SUMIFS`, `AVERAGEIFS` summary by segment |
 | **Payments** | Payment mix and installments vs order value | Excel Tables |
 | **Data_Quality** | Raw-file checks and cleaning notes | |
-| **Raw_Data** | `olist_orders_dataset.csv` exactly as downloaded: all 99,441 orders | Excel Table with filters; problem rows highlighted (delivered without a date, canceled) |
-| **Cleaned_Data** | The same 99,441 orders after `src/etl.py`, with the added delivery columns | Excel Table with filters; late deliveries highlighted |
+| **Orders_Raw** | `olist_orders_dataset.csv` as downloaded: all 99,441 orders | Excel Table with filters, frozen header |
+| **Orders_Clean** | The same 99,441 orders after cleaning, with the added delivery columns | Excel Table with filters, frozen header |
 
 To rebuild it:
 
