@@ -109,57 +109,50 @@ save(fig, "03_cohort_retention")
 
 # %% [markdown]
 # ### RFM segmentation
-# With 97% one-time buyers, frequency barely varies, so segments lean on **Recency** and **Monetary**
-# quintiles and treat *any* repeat purchase as a strong loyalty signal.
+# Scores and segments are computed in SQL (`sql/05_rfm_segmentation.sql`), one row per customer.
+# **R** and **M** are data-driven quintiles; **F** uses business logic (1 / 2 / 3+ orders) because ~97% of
+# customers buy once. The cut-offs below come straight from the data.
 
 # %%
-rfm = r("rfm_base")
-rfm["R"] = pd.qcut(rfm.recency_days.rank(method="first"), 5, labels=[5, 4, 3, 2, 1]).astype(int)
-rfm["M"] = pd.qcut(rfm.monetary.rank(method="first"), 5, labels=[1, 2, 3, 4, 5]).astype(int)
-rfm["F"] = np.select([rfm.frequency >= 3, rfm.frequency == 2], [5, 4], 1)
+print(r("rfm_reference").to_string(index=False))
+print(r("rfm_cutoffs").to_string(index=False))
 
-def segment(row):
-    if row.frequency >= 2 and row.R >= 4:            return "Champions"
-    if row.frequency >= 2:                            return "Loyal (lapsing)"
-    if row.R >= 4 and row.M >= 4:                     return "New high-value"
-    if row.R >= 4:                                    return "New low-value"
-    if row.R == 3 and row.M >= 4:                     return "Promising big spenders"
-    if row.R <= 2 and row.M >= 4:                     return "At risk big spenders"
-    if row.R == 3:                                    return "Needs attention"
-    return "Hibernating"
-
-rfm["segment"] = rfm.apply(segment, axis=1)
-rfm["rfm_code"] = rfm.R.astype(str) + rfm.F.astype(str) + rfm.M.astype(str)
-seg = (rfm.groupby("segment")
-          .agg(customers=("customer_unique_id", "count"), revenue=("monetary", "sum"),
-               avg_spend=("monetary", "mean"), avg_recency_days=("recency_days", "mean"),
-               avg_orders=("frequency", "mean"), avg_review=("avg_review", "mean"))
-          .sort_values("revenue", ascending=False))
-seg["pct_customers"] = 100 * seg.customers / seg.customers.sum()
-seg["pct_revenue"] = 100 * seg.revenue / seg.revenue.sum()
-seg = seg.round(2)
+seg = r("rfm_segment_summary").set_index("segment")
 ACTIONS = {
-    "Champions": "VIP perks, referral programme, early access",
-    "Loyal (lapsing)": "Win-back with personalised category offers",
-    "New high-value": "Second-order coupon within 30 days; premium onboarding",
-    "New low-value": "Cross-sell bundles; free-shipping threshold nudges",
-    "Promising big spenders": "Timely reminder + loyalty points before they lapse",
-    "At risk big spenders": "High-touch win-back; survey why they left",
-    "Needs attention": "Low-cost email reactivation",
-    "Hibernating": "Suppress from paid channels; occasional seasonal blast",
+    "Champions": "VIP perks, referral programme, early access to launches",
+    "Loyal": "Personalised win-back offers in their favourite categories",
+    "Potential Loyalists": "Second-order coupon within 30 days of delivery",
+    "New Customers": "Onboarding emails, cross-sell bundles, free-shipping threshold nudges",
+    "At Risk": "High-touch win-back: personalised offer + survey on why they left",
+    "About to Sleep": "Low-cost email reactivation before they become Lost",
+    "Lost": "Suppress from paid channels; seasonal campaigns only",
 }
 seg["recommended_action"] = seg.index.map(ACTIONS)
-rfm.to_csv(PROC / "rfm_customers.csv", index=False, lineterminator="\n")
 seg.reset_index().to_csv(PROC / "rfm_segment_summary.csv", index=False, lineterminator="\n")
-print(seg[["customers", "pct_customers", "pct_revenue", "avg_spend", "avg_recency_days"]].to_string())
+print(seg[["customers", "pct_customers", "revenue", "pct_revenue", "avg_spend", "avg_recency_days"]].to_string())
 
-fig, ax = plt.subplots(figsize=(10, 4.5))
-s2 = seg.sort_values("pct_revenue")
-ax.barh(s2.index, s2.pct_customers, color=MUTED, label="% of customers")
-ax.barh(s2.index, s2.pct_revenue, color=ACCENT, height=.45, label="% of revenue")
-ax.xaxis.set_major_formatter(mtick.PercentFormatter())
-ax.set_title("RFM segments: share of customers vs share of revenue")
-ax.legend(frameon=False, loc="lower right")
+churn = r("rfm_churn_risk")
+churn["tier"] = churn.churn_risk_tier.str[2:]
+print(churn[["tier", "customers", "pct_customers", "revenue", "pct_revenue"]].to_string(index=False))
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 4.8), gridspec_kw={"width_ratios": [1.5, 1]})
+s2 = seg.sort_values("revenue")
+colors = [BAD if i in ("At Risk", "About to Sleep", "Lost") else ACCENT for i in s2.index]
+axes[0].barh(s2.index, s2.revenue / 1e6, color=colors)
+for i, (rev, pr, pc) in enumerate(zip(s2.revenue, s2.pct_revenue, s2.pct_customers)):
+    axes[0].text(rev / 1e6 + .05, i, f"{pr:.0f}% of revenue | {pc:.0f}% of customers", va="center", fontsize=8.5)
+axes[0].set_xlim(0, s2.revenue.max() / 1e6 * 1.55)
+axes[0].set_xlabel("revenue, R$ million")
+top = seg.iloc[0]
+axes[0].set_title(f"Revenue per RFM segment: {seg.index[0]} ({top.pct_customers:.0f}% of customers) holds {top.pct_revenue:.0f}% of revenue")
+axes[1].bar(churn.tier.str.replace(" - ", "\n").str.replace(" (", "\n("), churn.revenue / 1e6,
+            color=[BAD, "#f59e0b", GOOD])
+for i, (rev, pc) in enumerate(zip(churn.revenue, churn.pct_customers)):
+    axes[1].text(i, rev / 1e6 + .1, f"R$ {rev/1e6:.1f}M\n{pc:.0f}% of customers", ha="center", fontsize=8.5)
+axes[1].set_ylim(0, churn.revenue.max() / 1e6 * 1.3)
+axes[1].set_ylabel("revenue, R$ million")
+axes[1].set_title("Churn flag (Recency > 90 days and 1 order)")
+axes[1].tick_params(axis="x", labelsize=8.5)
 save(fig, "04_rfm_segments")
 
 # %% [markdown]

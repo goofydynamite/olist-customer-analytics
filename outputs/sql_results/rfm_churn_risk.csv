@@ -1,0 +1,4 @@
+churn_risk_tier,customers,pct_customers,revenue,pct_revenue,avg_spend,avg_recency_days
+1 High risk - high value,29006,30.5,8731282.0,55.5,301.02,287.0
+2 High risk - low value,46016,48.4,3346647.0,21.3,72.73,292.0
+3 Active (<= 90 days or repeat buyer),19961,21.0,3657598.0,23.2,183.24,74.0

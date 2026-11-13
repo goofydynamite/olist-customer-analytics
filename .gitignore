@@ -9,4 +9,5 @@ __pycache__/
 .venv/
 ~$*.xlsx
 outputs/sql_results/rfm_base.csv
+outputs/sql_results/rfm_customers.csv
 outputs/run_all.log

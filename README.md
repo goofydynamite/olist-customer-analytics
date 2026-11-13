@@ -36,7 +36,7 @@
 |---|---|---|---|
 | 1 | **Late delivery destroys ratings.** Even 1-3 days late drops the average from 4.1 to 3.3; 4+ days late, 68-80% of reviews are 1-2 stars. | `review_by_delivery_delay`; Mann-Whitney p < 0.001; days late is the strongest driver in a logistic model (AUC 0.74) | Pad delivery estimates in slow lanes, send proactive delay alerts, and rank sellers by on-time rate. |
 | 2 | **Almost no repeat business.** 97% of customers order once; in any month only ~0.3% of a cohort buys again. | `repeat_purchase_distribution`, `cohort_retention` | Second-order programme: a post-delivery coupon within 30 days, category-based reminders. Every +1pp in repeat rate is about 950 extra orders, or roughly R$ 150k. |
-| 3 | **Two RFM segments hold 56% of revenue.** "New high-value" (15% of customers, 28% of revenue) and "At-risk big spenders" (15%, 28%). | `rfm_segment_summary.csv` | Target new high-value buyers before they lapse; win back at-risk big spenders. |
+| 3 | **At Risk customers hold the most revenue.** "At Risk" (22% of customers) holds **40% of revenue**, and with "Potential Loyalists" (15%, 28%), 38% of customers make up 68% of revenue. **79% of customers** carry the churn flag (1 order, > 90 days silent). | `sql/05_rfm_segmentation.sql`, [1-page recommendation](reports/RFM_recommendation.md) | Value-ranked win-back for the 29,006 high-value flagged customers (55% of revenue); second-order programme for new buyers. |
 | 4 | **Multi-seller orders rate much lower** (2.86 vs 4.17), since they arrive as separate parcels. | `multi_seller_orders` | Consolidate shipments or set expectations at checkout. |
 | 5 | **The North and Northeast are underserved.** AL, MA, SE, CE and PA wait 21-25 days (SP: 9), pay freight worth 43-54% of the item price, and rate lowest. | `customers_by_state` | Regional fulfilment hubs and carriers; freight subsidies on high-value categories. |
 | 6 | **Seller revenue is concentrated.** The top 10% of sellers carry 68% of revenue. 38 sellers with 50+ orders are "at risk" (rating < 3.5 or > 15% late). | `seller_concentration`, `seller_scorecard` | Coach or demote at-risk sellers; protect star sellers. |
@@ -47,9 +47,30 @@
 | Layer | Files | What it shows |
 |---|---|---|
 | **Python ETL** | [`src/etl.py`](src/etl.py) | Loads 9 CSVs, fixes types, deduplicates reviews, translates categories, collapses 1M geolocation rows to one point per zip code, builds a **SQLite** database with indexes, and writes a [data-quality report](outputs/data_quality_report.csv). |
-| **SQL** | [`sql/`](sql) (20 queries) | Analytical views (order-grain fact view), **CTEs**, **window functions** (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`), cohort retention, RFM base, Pareto, seller segmentation with `CASE`. Run by [`src/run_sql.py`](src/run_sql.py), and results land in [`outputs/sql_results/`](outputs/sql_results). |
+| **SQL** | [`sql/`](sql) (25 queries) | Analytical views (order-grain fact view), **CTEs**, **window functions** (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`), cohort retention, RFM base, Pareto, seller segmentation with `CASE`. Run by [`src/run_sql.py`](src/run_sql.py), and results land in [`outputs/sql_results/`](outputs/sql_results). |
 | **Python analysis** | [`notebooks/olist_analysis.ipynb`](notebooks/olist_analysis.ipynb) (source [`src/analysis.py`](src/analysis.py)) | RFM segmentation with actions, cohort heatmap, a statistical test (Mann-Whitney U), a logistic-regression driver model for negative reviews, a state regression, a customer map, and 9 charts. |
 | **Excel** | [`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) | One-page dashboard with KPI tiles, 7 native charts, and an **interactive state lookup** (dropdown + `INDEX/MATCH`). Data tabs use Excel Tables, **430+ live formulas** (`SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `SUMPRODUCT`, `RANK`, MoM growth, running totals, Pareto classes), and conditional formatting (data bars, colour scales). |
+
+## RFM segmentation and churn risk
+
+**Business question:** which customer segments generate the most revenue, and which are at risk of churning?
+
+| Deliverable | File |
+|---|---|
+| SQL script with the RFM calculations, segment labels and churn flag | [`sql/05_rfm_segmentation.sql`](sql/05_rfm_segmentation.sql) |
+| Excel segment summary, revenue-per-segment chart, churn tiers and cut-offs | `RFM_Segments` tab in [`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) |
+| Bar chart: revenue per segment and churn tiers | [`reports/figures/04_rfm_segments.png`](reports/figures/04_rfm_segments.png) |
+| 1-page written recommendation | [`reports/RFM_recommendation.md`](reports/RFM_recommendation.md) |
+
+![RFM segments](reports/figures/04_rfm_segments.png)
+
+**How it avoids the usual mistakes**
+- **Customer level, not order level:** every metric is aggregated per `customer_unique_id`. In Olist, `customer_id` is re-issued for every order, so grouping by it would turn every order into a "customer".
+- **Thresholds come from the data:** R and M scores are `NTILE(5)` quintiles. The actual cut-offs are published by the `rfm_cutoffs` query: Recency 99 / 183 / 274 / 389 days, Monetary R$ 55 / 88 / 133 / 209. F uses business logic (1 / 2 / 3+ orders) because 97% of customers buy once.
+- **Findings, not descriptions:** "At Risk (22% of customers) holds 40% of revenue", not "At Risk customers spend a lot".
+- **Cleaned first:** canceled and unavailable orders and orders with no items are removed. Recency is measured from the day after the last *valid* order (2018-09-04).
+
+**Churn flag (stretch goal):** `Recency > 90 days AND Frequency = 1` flags 79.0% of customers (76.8% of revenue). The data ends in 2018 and almost nobody buys twice, so the flag alone is too broad. It is therefore split by value: **29,006 high-value flagged customers (M score 4-5) hold R$ 8.73M, 55.5% of all revenue**, and they are the priority list.
 
 ## Data
 The 9 original CSVs are in [`data/raw/`](data/raw), unchanged.
@@ -179,7 +200,7 @@ All cleaning happens in [`src/etl.py`](src/etl.py). The original files in [`data
 - **Delivery metrics** (delivery days, late rate, review vs delay) use delivered orders only.
 - **Review metrics** use only orders that have a review.
 - **No divide-by-zero:** freight-to-price ratios use `NULLIF(price, 0)` in SQL and `replace(0, NaN)` in Python.
-- **RFM** includes only customers whose orders have items (94,983 people). Recency is measured from one day after the last order in the data (the last order is on 2018-10-17).
+- **RFM** includes only customers whose orders have items (94,983 people). Recency is measured from the day after the last *valid* order (reference date 2018-09-04).
 - **Review-driver model:** rows missing any model input are dropped before training.
 - **Time window:** Sep-Dec 2016 and Sep-Oct 2018 have very few orders, so trend and cohort charts use **Jan 2017 to Aug 2018**.
 - **Like-for-like growth:** year-on-year comparisons use Jan-Aug of both years.
@@ -197,9 +218,10 @@ python src/run_sql.py
 |---|---|
 | [`00_views.sql`](sql/00_views.sql) | Reusable views: `v_orders` (one row per order with value, payment, review and delivery fields) and `v_items` (one row per item with category and seller) |
 | [`01_business_kpis.sql`](sql/01_business_kpis.sql) | KPI summary, monthly trend (MoM growth, 3-month average, running total), order status mix, weekday x hour heatmap, payment mix, installments vs order value |
-| [`02_customers_retention.sql`](sql/02_customers_retention.sql) | Repeat-purchase distribution, days to second order, monthly cohort retention, RFM base scores, performance by state |
+| [`02_customers_retention.sql`](sql/02_customers_retention.sql) | Repeat-purchase distribution, days to second order, monthly cohort retention, performance by state |
 | [`03_delivery_reviews.sql`](sql/03_delivery_reviews.sql) | Review score by delivery delay, review distribution, late vs on time, multi-seller orders, worst seller-to-customer routes |
 | [`04_products_sellers.sql`](sql/04_products_sellers.sql) | Category Pareto, category growth 2018 vs 2017, seller scorecard and segments, seller revenue concentration |
+| [`05_rfm_segmentation.sql`](sql/05_rfm_segmentation.sql) | Customer-level RFM table, data-driven cut-offs, segment labels (Champions, Loyal, Potential Loyalists, New Customers, At Risk, About to Sleep, Lost), segment summary, churn flag and value-ranked churn tiers, At Risk revenue by state |
 
 **Techniques used:** multi-table joins, views, CTEs, `CASE` bucketing, window functions (`LAG`, moving averages, running totals, `RANK`, `NTILE`, `PERCENT_RANK`, `ROW_NUMBER`), `HAVING`, `UNION ALL`, and date maths with `julianday` / `strftime`.
 
@@ -229,21 +251,20 @@ python src/make_notebook.py
 | Growth | Monthly revenue with a 3-month average | Revenue Jan-Aug 2018 was **+140%** vs Jan-Aug 2017; Nov-2017 (Black Friday) is the peak month |
 | Late vs on-time reviews | Mann-Whitney U test | **4.29 vs 2.27** stars, p < 0.001 |
 | What predicts a 1-2 star review | Logistic regression on 8 order features (standardised) | Test ROC-AUC **0.74**; days late and total delivery time are the strongest drivers |
-| Customer value | RFM segmentation (Recency and Monetary quintiles, repeat purchase as loyalty signal) | 8 segments, each with a recommended action |
+| Customer value | RFM segments from `sql/05_rfm_segmentation.sql`, with recommended actions | At Risk (22% of customers) holds 40% of revenue; 79% of customers carry the churn flag |
 | Regions | State-level regression of review on delivery days | Slower states rate lower |
 
 ### RFM segments
 
-| Segment | Customers | Share of revenue | Avg spend (R$) | Recommended action |
-|---|---:|---:|---:|---|
-| New high-value | 14,611 | 28.2% | 303 | Second-order coupon within 30 days |
-| At risk big spenders | 14,041 | 27.6% | 309 | High-touch win-back; ask why they left |
-| Promising big spenders | 7,045 | 12.5% | 280 | Reminder + loyalty points before they lapse |
-| Hibernating | 22,931 | 10.6% | 73 | Seasonal campaigns only |
-| New low-value | 22,138 | 10.3% | 73 | Cross-sell bundles, free-shipping nudges |
-| Needs attention | 11,330 | 5.2% | 72 | Low-cost email reactivation |
-| Loyal (lapsing) | 1,643 | 3.1% | 299 | Personalised win-back offers |
-| Champions | 1,244 | 2.5% | 321 | VIP perks and referral programme |
+| Segment | Customers | Share of customers | Share of revenue | Avg spend (R$) | Recommended action |
+|---|---:|---:|---:|---:|---|
+| At Risk | 21,092 | 22.2% | 40.2% | 300 | High-touch win-back: personalised offer + survey |
+| Potential Loyalists | 14,604 | 15.4% | 28.1% | 303 | Second-order coupon within 30 days of delivery |
+| Lost | 22,912 | 24.1% | 10.6% | 73 | Suppress from paid channels; seasonal campaigns only |
+| New Customers | 22,156 | 23.3% | 10.3% | 73 | Onboarding, cross-sell bundles, free-shipping nudges |
+| About to Sleep | 11,332 | 11.9% | 5.2% | 72 | Low-cost email reactivation |
+| Loyal | 1,653 | 1.7% | 3.1% | 299 | Personalised win-back offers |
+| Champions | 1,234 | 1.3% | 2.5% | 321 | VIP perks, referral programme |
 
 Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_segment_summary.csv). Model coefficients: [`data/processed/negative_review_drivers.csv`](data/processed/negative_review_drivers.csv).
 
@@ -259,7 +280,7 @@ Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_seg
 
 ## Excel dashboard
 
-[`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) is built by [`src/build_excel.py`](src/build_excel.py) from the SQL and Python outputs. The data tabs hold the query results as values; every KPI, ratio, growth rate, lookup and summary on top of them is a **live Excel formula** (431 formulas, 0 errors).
+[`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) is built by [`src/build_excel.py`](src/build_excel.py) from the SQL and Python outputs. The data tabs hold the query results as values; every KPI, ratio, growth rate, lookup and summary on top of them is a **live Excel formula** (441 formulas, 0 errors).
 
 ![Excel dashboard](reports/figures/10_excel_dashboard.png)
 
@@ -272,10 +293,12 @@ Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_seg
 | **Categories** | 74 categories with Pareto A/B/C classes | Cumulative share with `SUM`; nested `IF`; low ratings highlighted |
 | **Delivery_Reviews** | Review by delay band, score distribution, late vs on time, worst routes | `INDEX`/`MATCH` for the review gap |
 | **Retention** | Repeat purchases and the monthly cohort retention matrix | Weighted average with `SUMPRODUCT` / `SUMIFS`; heatmap |
-| **RFM_Segments** | 8 segments with recommended actions | Share formulas; data bars |
+| **RFM_Segments** | 7 segments with recommended actions, churn-risk tiers, score cut-offs, At Risk revenue by state, revenue-per-segment chart | Share and total formulas; data bars; at-risk segments highlighted |
 | **Sellers** | 3,053-seller scorecard (filterable) | `COUNTIFS`, `SUMIFS`, `AVERAGEIFS` summary by segment |
 | **Payments** | Payment mix and installments vs order value | Excel Tables |
 | **Data_Quality** | Raw-file checks and cleaning notes | |
+| **Raw_Data** | `olist_orders_dataset.csv` exactly as downloaded: all 99,441 orders | Excel Table with filters; problem rows highlighted (delivered without a date, canceled) |
+| **Cleaned_Data** | The same 99,441 orders after `src/etl.py`, with the added delivery columns | Excel Table with filters; late deliveries highlighted |
 
 To rebuild it:
 
@@ -301,10 +324,10 @@ olist-customer-analytics/
 ├── run_all.py
 ├── .gitattributes
 ├── src/            etl.py · run_sql.py · analysis.py · make_notebook.py · build_excel.py · excel_recalc.ps1
-├── sql/            00_views · 01_business_kpis · 02_customers_retention · 03_delivery_reviews · 04_products_sellers
+├── sql/            00_views · 01_business_kpis · 02_customers_retention · 03_delivery_reviews · 04_products_sellers · 05_rfm_segmentation
 ├── notebooks/      olist_analysis.ipynb
 ├── excel/          Olist_Customer_Dashboard.xlsx
 ├── outputs/        sql_results/*.csv · data_quality_report.csv
-├── reports/figures/
+├── reports/        RFM_recommendation.md · figures/
 └── data/           raw/ (9 original CSVs) · cleaned/ (8 cleaned CSVs) · processed/ (RFM outputs) · olist.db (git-ignored)
 ```

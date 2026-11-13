@@ -1,5 +1,5 @@
 -- =====================================================================
--- 02_customers_retention.sql  -  repeat purchase, cohorts, RFM
+-- 02_customers_retention.sql  -  repeat purchase, cohorts, states (RFM: see 05)
 -- Uses customer_unique_id (the person), not customer_id (per order).
 -- =====================================================================
 
@@ -65,27 +65,6 @@ FROM    activity a JOIN sizes s USING (cohort)
 WHERE   a.cohort BETWEEN '2017-01' AND '2018-08' AND a.month_n <= 12
 GROUP BY a.cohort, a.month_n
 ORDER BY a.cohort, a.month_n;
-
--- name: rfm_base
--- Recency measured from the day after the last order in the data.
-WITH ref AS (SELECT julianday(MAX(order_purchase_timestamp)) + 1 AS d FROM orders),
-cust AS (
-    SELECT customer_unique_id,
-           MAX(customer_state)                             AS state,
-           COUNT(*)                                        AS frequency,
-           ROUND(SUM(gross_value), 2)                      AS monetary,
-           CAST((SELECT d FROM ref) - julianday(MAX(order_purchase_timestamp)) AS INT) AS recency_days,
-           ROUND(AVG(review_score), 2)                     AS avg_review
-    FROM   v_orders
-    WHERE  order_status NOT IN ('canceled', 'unavailable') AND gross_value IS NOT NULL
-    GROUP BY customer_unique_id
-)
-SELECT  *,
-        NTILE(5) OVER (ORDER BY recency_days DESC) AS r_score,   -- 5 = most recent
-        CASE WHEN frequency >= 3 THEN 5 WHEN frequency = 2 THEN 4
-             ELSE NTILE(3) OVER (PARTITION BY frequency = 1 ORDER BY monetary) END AS f_score,
-        NTILE(5) OVER (ORDER BY monetary) AS m_score
-FROM    cust;
 
 -- name: customers_by_state
 SELECT  customer_state,

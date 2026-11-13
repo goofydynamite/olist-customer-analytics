@@ -253,25 +253,91 @@ def main() -> None:
 
     # ------------------------------------------------------------------ RFM
     ws = wb.create_sheet("RFM_Segments")
-    header(ws, "RFM customer segments", "Source: src/analysis.py (Recency & Monetary quintiles; any repeat purchase = loyalty signal)")
+    ref = r("rfm_reference").iloc[0]
+    header(ws, "RFM customer segments: who drives revenue, who is about to churn",
+           f"Source: sql/05_rfm_segmentation.sql. One row per customer (customer_unique_id), valid orders only. "
+           f"Reference date {ref.reference_date}. R and M = data quintiles, F = 1 / 2 / 3+ orders.")
     seg = pd.read_csv(PROC / "rfm_segment_summary.csv")[[
-        "segment", "customers", "revenue", "avg_spend", "avg_recency_days", "avg_orders", "avg_review", "recommended_action"]]
+        "segment", "customers", "revenue", "avg_spend", "avg_recency_days", "avg_orders", "avg_review",
+        "pct_churn_flag", "recommended_action"]]
+    seg["pct_churn_flag"] = seg["pct_churn_flag"] / 100
     seg = seg.rename(columns={"segment": "Segment", "customers": "Customers", "revenue": "Revenue (R$)",
                               "avg_spend": "Avg spend (R$)", "avg_recency_days": "Avg days since last order",
                               "avg_orders": "Avg orders", "avg_review": "Avg review",
-                              "recommended_action": "Recommended action"})
+                              "pct_churn_flag": "Churn-flagged", "recommended_action": "Recommended action"})
     seg.insert(2, "Share of customers", None)
     seg.insert(4, "Share of revenue", None)
     g0, g1 = write_table(ws, seg, 4, 1, "tRFM",
                          {"Customers": "int", "Share of customers": "pct", "Revenue (R$)": "brl", "Share of revenue": "pct",
                           "Avg spend (R$)": "brl2", "Avg days since last order": "int", "Avg orders": "dec2",
-                          "Avg review": "dec2"}, widths={"Recommended action": 55, "Segment": 24})
+                          "Avg review": "dec2", "Churn-flagged": "pct"},
+                         widths={"Recommended action": 62, "Segment": 22})
     for i in range(g0, g1 + 1):
         ws[f"C{i}"] = f"=B{i}/SUM($B${g0}:$B${g1})"
         ws[f"E{i}"] = f"=D{i}/SUM($D${g0}:$D${g1})"
         for col in "CE":
             ws[f"{col}{i}"].number_format, ws[f"{col}{i}"].font = FMT["pct"], F_B
+    ws.cell(g1 + 1, 1, "Total").font = F_BOLD
+    for col, f in zip("BCDE", ["int", "pct", "brl", "pct"]):
+        c_ = ws[f"{col}{g1 + 1}"]
+        c_.value = f"=SUM({col}{g0}:{col}{g1})"
+        c_.number_format, c_.font = FMT[f], F_BOLD
     ws.conditional_formatting.add(f"E{g0}:E{g1}", DataBarRule(start_type="num", start_value=0, end_type="max", color="93C5FD"))
+    ws.conditional_formatting.add(f"A{g0}:A{g1}", FormulaRule(
+        formula=[f'OR(A{g0}="At Risk",A{g0}="About to Sleep",A{g0}="Lost")'], font=Font(name=FONT, color="DC2626", bold=True)))
+
+    # churn flag (stretch goal)
+    cr = r("rfm_churn_risk")
+    cr["churn_risk_tier"] = cr["churn_risk_tier"].str[2:]
+    cr = cr[["churn_risk_tier", "customers", "revenue", "avg_spend", "avg_recency_days"]].rename(columns={
+        "churn_risk_tier": "Churn tier (flag = Recency > 90d AND 1 order)", "customers": "Customers",
+        "revenue": "Revenue (R$)", "avg_spend": "Avg spend (R$)", "avg_recency_days": "Avg days since last order"})
+    cr.insert(2, "Share of customers", None)
+    cr.insert(4, "Share of revenue", None)
+    t0 = g1 + 4
+    ws.cell(t0 - 1, 1, "Churn-risk flag (stretch goal). Value tier = flagged AND top-40% spend (M score 4-5)").font = F_BOLD
+    k0, k1 = write_table(ws, cr, t0, 1, "tChurn",
+                         {"Customers": "int", "Share of customers": "pct", "Revenue (R$)": "brl",
+                          "Share of revenue": "pct", "Avg spend (R$)": "brl2", "Avg days since last order": "int"})
+    for i in range(k0, k1 + 1):
+        ws[f"C{i}"] = f"=B{i}/SUM($B${k0}:$B${k1})"
+        ws[f"E{i}"] = f"=D{i}/SUM($D${k0}:$D${k1})"
+        for col in "CE":
+            ws[f"{col}{i}"].number_format, ws[f"{col}{i}"].font = FMT["pct"], F_B
+    ws.column_dimensions["A"].width = 40
+    ws.cell(k1 + 1, 1, "Flagged in total").font = F_BOLD
+    ws[f"C{k1 + 1}"] = f"=C{k0}+C{k0 + 1}"
+    ws[f"E{k1 + 1}"] = f"=E{k0}+E{k0 + 1}"
+    for col in "CE":
+        ws[f"{col}{k1 + 1}"].number_format, ws[f"{col}{k1 + 1}"].font = FMT["pct"], F_BOLD
+
+    # data-driven cut-offs
+    cut = r("rfm_cutoffs").rename(columns={"metric": "Metric", "score": "Score", "min_value": "From",
+                                           "max_value": "To", "customers": "Customers"})
+    u0 = k1 + 5
+    ws.cell(u0 - 1, 1, "Score cut-offs taken from the data (NTILE quintiles for R and M; F by order count)").font = F_BOLD
+    write_table(ws, cut, u0, 1, "tCutoffs", {"From": "#,##0.00", "To": "#,##0.00", "Customers": "int"})
+
+    # where At Risk revenue sits
+    st_r = r("rfm_segment_by_state").rename(columns={"state": "State", "at_risk_customers": "At Risk customers",
+                                                    "at_risk_revenue": "At Risk revenue (R$)", "avg_review": "Avg review"})
+    ws.cell(u0 - 1, 8, "At Risk revenue by state (top 10)").font = F_BOLD
+    write_table(ws, st_r, u0, 8, "tAtRiskStates", {"At Risk customers": "int", "At Risk revenue (R$)": "brl",
+                                                   "Avg review": "dec2"})
+
+    ch = BarChart(); ch.type = "bar"; ch.title = "Revenue per RFM segment (R$)"; ch.style = 10
+    ch.add_data(Reference(ws, min_col=4, min_row=g0 - 1, max_row=g1), titles_from_data=True)
+    ch.set_categories(Reference(ws, min_col=1, min_row=g0, max_row=g1))
+    ch.x_axis.scaling.orientation = "maxMin"; ch.legend = None; ch.y_axis.numFmt = '#,##0,"k"'
+    ch.x_axis.delete = ch.y_axis.delete = False
+    ch.series[0].graphicalProperties.solidFill = "2563EB"
+    ch.title.overlay = False
+    ch.y_axis.crosses = "max"            # value axis at the bottom
+    ch.width, ch.height = 16, 8
+    ws.add_chart(ch, "N3")
+    # one set of widths for all four tables on this tab (set last: write_table sets its own)
+    for col, w in zip("ABCDEFGHIJKL", [34, 11, 12, 15, 11, 15, 14, 11, 14, 18, 16, 62]):
+        ws.column_dimensions[col].width = w
 
     # ------------------------------------------------------------------ Sellers
     ws = wb.create_sheet("Sellers")
@@ -492,6 +558,7 @@ def main() -> None:
         "3. Revenue grew ~140% Jan-Aug 2018 vs 2017; Nov-2017 (Black Friday) is the peak month.",
         "4. North/Northeast states wait 2-3x longer than SP, pay more freight, and rate lower.",
         "5. Top 10% of sellers carry ~2/3 of revenue; a handful of big sellers are 'at risk'.",
+        "6. RFM: 'At Risk' customers (22% of customers) hold 40% of revenue; 79% of customers carry the churn flag.",
     ]
     for i, t in enumerate(ins, start=60):
         ws.cell(i, 2, t).font = F_BOLD if i == 60 else F_B

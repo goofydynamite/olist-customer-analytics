@@ -1,0 +1,14 @@
+metric,score,min_value,max_value,customers
+Frequency (orders),1,1.0,1.0,92096
+Frequency (orders),2,2.0,2.0,2651
+Frequency (orders),3,3.0,16.0,236
+Monetary (R$ total spend),1,9.59,55.36,18997
+Monetary (R$ total spend),2,55.36,87.5,18997
+Monetary (R$ total spend),3,87.51,133.05,18997
+Monetary (R$ total spend),4,133.05,209.11,18996
+Monetary (R$ total spend),5,209.11,13664.08,18996
+Recency (days since last order),1,389.0,730.0,18996
+Recency (days since last order),2,274.0,389.0,18996
+Recency (days since last order),3,183.0,274.0,18997
+Recency (days since last order),4,99.0,183.0,18997
+Recency (days since last order),5,1.0,99.0,18997
