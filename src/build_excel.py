@@ -14,7 +14,6 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.chart.label import DataLabelList
-from openpyxl.comments import Comment
 from openpyxl.formatting.rule import ColorScaleRule, DataBarRule, FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -26,17 +25,17 @@ RES = ROOT / "outputs" / "sql_results"
 PROC = ROOT / "data" / "processed"
 OUT = ROOT / "excel" / "Olist_Customer_Dashboard.xlsx"
 
-FONT = "Arial"
+FONT = "Calibri"
 NAVY, BLUE, LIGHT, GREY = "1F2937", "2563EB", "EFF6FF", "6B7280"
-F_TITLE = Font(name=FONT, size=18, bold=True, color=NAVY)
-F_SUB = Font(name=FONT, size=10, italic=True, color=GREY)
-F_H = Font(name=FONT, size=10, bold=True, color="FFFFFF")
-F_B = Font(name=FONT, size=10)
-F_BOLD = Font(name=FONT, size=10, bold=True)
+F_TITLE = Font(name=FONT, size=16, bold=True)
+F_SUB = Font(name=FONT, size=11, color=GREY)
+F_H = Font(name=FONT, size=11, bold=True, color="FFFFFF")
+F_B = Font(name=FONT, size=11)
+F_BOLD = Font(name=FONT, size=11, bold=True)
 F_KPI = Font(name=FONT, size=20, bold=True, color=BLUE)
-F_KPI_L = Font(name=FONT, size=9, color=GREY)
-FILL_H = PatternFill("solid", fgColor=NAVY)
-FILL_TILE = PatternFill("solid", fgColor=LIGHT)
+F_KPI_L = Font(name=FONT, size=10, color=GREY)
+FILL_H = PatternFill("solid", fgColor="4472C4")
+FILL_TILE = PatternFill("solid", fgColor="DDEBF7")
 FILL_INPUT = PatternFill("solid", fgColor="FFFF00")
 THIN = Side(style="thin", color="D1D5DB")
 BOX = Border(top=THIN, bottom=THIN, left=THIN, right=THIN)
@@ -53,7 +52,7 @@ def write_table(ws, df: pd.DataFrame, start_row: int, start_col: int, name: str,
     fmts = fmts or {}
     for j, col in enumerate(df.columns):
         c = ws.cell(start_row, start_col + j, col)
-        c.font, c.fill, c.alignment = F_H, FILL_H, Alignment(horizontal="center", wrap_text=True)
+        c.alignment = Alignment(wrap_text=True)          # header look comes from the table style
     for i, row in enumerate(df.itertuples(index=False), start=start_row + 1):
         for j, v in enumerate(row):
             c = ws.cell(i, start_col + j, None if pd.isna(v) else v)
@@ -64,7 +63,7 @@ def write_table(ws, df: pd.DataFrame, start_row: int, start_col: int, name: str,
     last = start_row + len(df)
     ref = f"{get_column_letter(start_col)}{start_row}:{get_column_letter(start_col + df.shape[1] - 1)}{last}"
     t = Table(displayName=name, ref=ref)
-    t.tableStyleInfo = TableStyleInfo(name="TableStyleLight9", showRowStripes=True)
+    t.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True)
     ws.add_table(t)
     for j, col in enumerate(df.columns):
         w = (widths or {}).get(col, max(10, min(32, len(str(col)) + 3)))
@@ -72,11 +71,11 @@ def write_table(ws, df: pd.DataFrame, start_row: int, start_col: int, name: str,
     return start_row + 1, last
 
 
-def header(ws, title: str, subtitle: str):
-    ws["A1"], ws["A2"] = title, subtitle
-    ws["A1"].font, ws["A2"].font = F_TITLE, F_SUB
-    ws.sheet_view.showGridLines = False
-    ws.row_dimensions[1].height = 28
+def header(ws, title: str, subtitle: str = ""):
+    ws["A1"], ws["A1"].font = title, F_TITLE
+    if subtitle:
+        ws["A2"], ws["A2"].font = subtitle, F_SUB
+    ws.row_dimensions[1].height = 22
 
 
 def pct(df, cols):
@@ -95,7 +94,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------ Monthly
     ws = wb.create_sheet("Monthly")
-    header(ws, "Monthly performance", "Source: sql/01_business_kpis.sql > monthly_trend  (Jan-2017 to Aug-2018, complete months only)")
+    header(ws, "Monthly Performance", "Jan 2017 - Aug 2018")
     m = r("monthly_trend")[["purchase_month", "orders", "customers", "revenue", "avg_review", "late_rate_pct"]]
     m = pct(m, ["late_rate_pct"]).rename(columns={
         "purchase_month": "Month", "orders": "Orders", "customers": "Customers", "revenue": "Revenue (R$)",
@@ -118,7 +117,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------ States
     ws = wb.create_sheet("States")
-    header(ws, "Performance by customer state", "Source: sql/02_customers_retention.sql > customers_by_state")
+    header(ws, "Performance by State")
     s = pct(r("customers_by_state"), ["freight_pct_of_items", "late_pct"]).rename(columns={
         "customer_state": "State", "customers": "Customers", "orders": "Orders", "revenue": "Revenue (R$)",
         "aov": "AOV (R$)", "avg_freight": "Avg freight (R$)", "freight_pct_of_items": "Freight % of items",
@@ -141,7 +140,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------ Categories
     ws = wb.create_sheet("Categories")
-    header(ws, "Category performance (Pareto)", "Source: sql/04_products_sellers.sql > category_performance. Revenue = item price, excl. freight")
+    header(ws, "Category Performance", "Revenue = item price (excl. freight)")
     c = r("category_performance")[["category", "items_sold", "orders", "revenue", "avg_price",
                                     "freight_pct_of_price", "avg_review", "late_pct"]]
     c = pct(c, ["freight_pct_of_price", "late_pct"]).rename(columns={
@@ -167,7 +166,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------ Delivery & reviews
     ws = wb.create_sheet("Delivery_Reviews")
-    header(ws, "Delivery delay vs customer review", "Source: sql/03_delivery_reviews.sql. Delivered orders that have a review")
+    header(ws, "Delivery vs Reviews", "Delivered orders with a review")
     d = r("review_by_delivery_delay")
     d["delay_band"] = d["delay_band"].str[2:]
     d = pct(d, ["pct_negative", "pct_five_star"]).rename(columns={
@@ -205,13 +204,13 @@ def main() -> None:
     lanes = pct(r("delivery_route_state_pairs"), ["late_pct"]).rename(columns={
         "seller_state": "Seller state", "customer_state": "Customer state", "items": "Items",
         "avg_delivery_days": "Avg delivery days", "late_pct": "Late rate", "avg_review": "Avg review"})
-    ws.cell(3, 9, "Worst seller -> customer lanes (min 200 items)").font = F_BOLD
+    ws.cell(3, 9, "Most delayed routes (200+ items)").font = F_BOLD
     write_table(ws, lanes, 4, 9, "tLanes", {"Items": "int", "Avg delivery days": "dec1",
                                             "Late rate": "pct", "Avg review": "dec2"})
 
     # ------------------------------------------------------------------ Retention
     ws = wb.create_sheet("Retention")
-    header(ws, "Repeat purchase & cohort retention", "Source: sql/02_customers_retention.sql. Customer = customer_unique_id")
+    header(ws, "Repeat Purchases & Retention")
     rp = pct(r("repeat_purchase_distribution"), ["pct_customers", "pct_revenue"]).rename(columns={
         "orders_per_customer": "Orders per customer", "customers": "Customers", "pct_customers": "Share of customers",
         "revenue": "Revenue (R$)", "pct_revenue": "Share of revenue"})
@@ -227,7 +226,7 @@ def main() -> None:
     piv = coh.pivot(index="cohort", columns="month_n", values="retention_pct").reindex(columns=range(0, 13))
     sizes = coh.drop_duplicates("cohort").set_index("cohort")["cohort_size"]
     top = rp1 + 5
-    ws.cell(top - 1, 1, "Cohort retention: % of each first-purchase cohort that ordered again N months later").font = F_BOLD
+    ws.cell(top - 1, 1, "Cohort retention (% who ordered again)").font = F_BOLD
     hdrs = ["Cohort", "New customers"] + [f"M{k}" for k in range(1, 13)]
     for j, h in enumerate(hdrs, 1):
         cc = ws.cell(top, j, h); cc.font, cc.fill, cc.alignment = F_H, FILL_H, Alignment(horizontal="center")
@@ -239,7 +238,7 @@ def main() -> None:
             if pd.notna(v):
                 cc = ws.cell(i, 2 + k, v / 100); cc.number_format = "0.00%"; cc.font = F_B
     last = top + len(piv)
-    ws.cell(last + 1, 1, "Weighted avg").font = F_BOLD
+    ws.cell(last + 1, 1, "Average").font = F_BOLD
     for k in range(1, 13):
         col = get_column_letter(2 + k)
         cc = ws.cell(last + 1, 2 + k,
@@ -254,9 +253,7 @@ def main() -> None:
     # ------------------------------------------------------------------ RFM
     ws = wb.create_sheet("RFM_Segments")
     ref = r("rfm_reference").iloc[0]
-    header(ws, "RFM customer segments: who drives revenue, who is about to churn",
-           f"Source: sql/05_rfm_segmentation.sql. One row per customer (customer_unique_id), valid orders only. "
-           f"Reference date {ref.reference_date}. R and M = data quintiles, F = 1 / 2 / 3+ orders.")
+    header(ws, "RFM Segments", f"Reference date: {ref.reference_date}")
     seg = pd.read_csv(PROC / "rfm_segment_summary.csv")[[
         "segment", "customers", "revenue", "avg_spend", "avg_recency_days", "avg_orders", "avg_review",
         "pct_churn_flag", "recommended_action"]]
@@ -290,12 +287,12 @@ def main() -> None:
     cr = r("rfm_churn_risk")
     cr["churn_risk_tier"] = cr["churn_risk_tier"].str[2:]
     cr = cr[["churn_risk_tier", "customers", "revenue", "avg_spend", "avg_recency_days"]].rename(columns={
-        "churn_risk_tier": "Churn tier (flag = Recency > 90d AND 1 order)", "customers": "Customers",
+        "churn_risk_tier": "Churn risk", "customers": "Customers",
         "revenue": "Revenue (R$)", "avg_spend": "Avg spend (R$)", "avg_recency_days": "Avg days since last order"})
     cr.insert(2, "Share of customers", None)
     cr.insert(4, "Share of revenue", None)
     t0 = g1 + 4
-    ws.cell(t0 - 1, 1, "Churn-risk flag (stretch goal). Value tier = flagged AND top-40% spend (M score 4-5)").font = F_BOLD
+    ws.cell(t0 - 1, 1, "Churn risk (one order, no purchase in 90+ days)").font = F_BOLD
     k0, k1 = write_table(ws, cr, t0, 1, "tChurn",
                          {"Customers": "int", "Share of customers": "pct", "Revenue (R$)": "brl",
                           "Share of revenue": "pct", "Avg spend (R$)": "brl2", "Avg days since last order": "int"})
@@ -305,7 +302,7 @@ def main() -> None:
         for col in "CE":
             ws[f"{col}{i}"].number_format, ws[f"{col}{i}"].font = FMT["pct"], F_B
     ws.column_dimensions["A"].width = 40
-    ws.cell(k1 + 1, 1, "Flagged in total").font = F_BOLD
+    ws.cell(k1 + 1, 1, "Total flagged").font = F_BOLD
     ws[f"C{k1 + 1}"] = f"=C{k0}+C{k0 + 1}"
     ws[f"E{k1 + 1}"] = f"=E{k0}+E{k0 + 1}"
     for col in "CE":
@@ -315,13 +312,13 @@ def main() -> None:
     cut = r("rfm_cutoffs").rename(columns={"metric": "Metric", "score": "Score", "min_value": "From",
                                            "max_value": "To", "customers": "Customers"})
     u0 = k1 + 5
-    ws.cell(u0 - 1, 1, "Score cut-offs taken from the data (NTILE quintiles for R and M; F by order count)").font = F_BOLD
+    ws.cell(u0 - 1, 1, "Score cut-offs").font = F_BOLD
     write_table(ws, cut, u0, 1, "tCutoffs", {"From": "#,##0.00", "To": "#,##0.00", "Customers": "int"})
 
     # where At Risk revenue sits
     st_r = r("rfm_segment_by_state").rename(columns={"state": "State", "at_risk_customers": "At Risk customers",
                                                     "at_risk_revenue": "At Risk revenue (R$)", "avg_review": "Avg review"})
-    ws.cell(u0 - 1, 8, "At Risk revenue by state (top 10)").font = F_BOLD
+    ws.cell(u0 - 1, 8, "At Risk revenue by state").font = F_BOLD
     write_table(ws, st_r, u0, 8, "tAtRiskStates", {"At Risk customers": "int", "At Risk revenue (R$)": "brl",
                                                    "Avg review": "dec2"})
 
@@ -341,7 +338,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------ Sellers
     ws = wb.create_sheet("Sellers")
-    header(ws, "Seller scorecard", "Source: sql/04_products_sellers.sql > seller_scorecard. Filter the table by segment or state")
+    header(ws, "Seller Scorecard")
     sel = pct(r("seller_scorecard"), ["late_pct"]).rename(columns={
         "seller_id": "Seller ID", "seller_state": "State", "orders": "Orders", "revenue": "Revenue (R$)",
         "avg_review": "Avg review", "late_pct": "Late rate", "n_categories": "Categories",
@@ -349,7 +346,7 @@ def main() -> None:
     sl0, sl1 = write_table(ws, sel, 4, 12, "tSellers",
                            {"Orders": "int", "Revenue (R$)": "brl", "Avg review": "dec2", "Late rate": "pct"},
                            widths={"Seller ID": 36, "Segment": 24})
-    ws["A4"], ws["A4"].font = "Summary by segment (live COUNTIFS / SUMIFS over the table)", F_BOLD
+    ws["A4"], ws["A4"].font = "Summary by segment", F_BOLD
     summ_hdr = ["Segment", "Sellers", "Revenue (R$)", "Share of revenue", "Avg review"]
     for j, h in enumerate(summ_hdr, 1):
         cc = ws.cell(5, j, h); cc.font, cc.fill = F_H, FILL_H
@@ -375,7 +372,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------ Payments
     ws = wb.create_sheet("Payments")
-    header(ws, "Payment methods", "Source: sql/01_business_kpis.sql > payment_mix, installments_vs_ticket")
+    header(ws, "Payment Methods")
     pm = pct(r("payment_mix"), ["pct_value"]).rename(columns={
         "payment_type": "Payment type", "orders": "Orders", "value": "Value (R$)", "pct_value": "Share of value",
         "avg_installments": "Avg installments", "avg_payment": "Avg payment (R$)"})
@@ -389,17 +386,17 @@ def main() -> None:
 
     # ------------------------------------------------------------------ Data quality + notes
     ws = wb.create_sheet("Data_Quality")
-    header(ws, "Data quality checks on the raw files", "Source: src/etl.py > outputs/data_quality_report.csv")
+    header(ws, "Data Quality Checks", "Raw files, before cleaning")
     write_table(ws, r("../data_quality_report"), 4, 1, "tDQ", {"rows": "int", "null_cells": "int"},
                 widths={"cols_with_nulls": 60})
     notes = [
-        "Cleaning decisions",
-        "- reviews: 814 duplicate review_ids and orders with several reviews -> kept the latest answer per order.",
-        "- payments: 3 rows with payment_type 'not_defined' removed.",
-        "- products: 2 categories missing from the translation file were translated by hand; 610 products with no category -> 'unknown'.",
-        "- geolocation: 1M rows (many duplicates) filtered to Brazil's bounding box and averaged to one point per zip prefix.",
-        "- 'delivered' orders without a delivery date are not counted as delivered.",
-        "- Revenue = item price + freight on orders not canceled/unavailable. Category revenue uses item price only.",
+        "Cleaning steps",
+        "Reviews: kept the latest review per order (814 duplicate review IDs)",
+        "Payments: removed 3 rows with payment type 'not_defined'",
+        "Products: translated 2 missing categories; 610 products with no category set to 'unknown'",
+        "Geolocation: removed points outside Brazil, one averaged point per zip code",
+        "Orders: 'delivered' orders with no delivery date not counted as delivered",
+        "Revenue: item price + freight, excluding canceled / unavailable orders",
     ]
     for i, n in enumerate(notes, start=16):
         ws.cell(i, 1, n).font = F_BOLD if i == 16 else F_B
@@ -407,8 +404,8 @@ def main() -> None:
     # ------------------------------------------------------------------ Dashboard
     ws = dash
     ws.sheet_view.showGridLines = False
-    ws["B1"], ws["B1"].font = "Olist E-commerce  |  Customer & Delivery Dashboard", F_TITLE
-    ws["B2"] = "Brazilian marketplace, ~99k orders, Sep-2016 to Aug-2018. Every number below is a formula over the data tabs."
+    ws["B1"], ws["B1"].font = "Olist E-commerce Dashboard", F_TITLE
+    ws["B2"] = "Sep 2016 - Aug 2018"
     ws["B2"].font = F_SUB
     ws.row_dimensions[1].height = 30
     for col in range(1, 26):
@@ -441,10 +438,9 @@ def main() -> None:
     ws.row_dimensions[5].height = ws.row_dimensions[6].height = 18
 
     # --- interactive state lookup
-    ws["B8"], ws["B8"].font = "State lookup  -  pick a state in the yellow cell:", F_BOLD
+    ws["B8"], ws["B8"].font = "Select state:", F_BOLD
     ws["F8"] = "RJ"
     ws["F8"].fill, ws["F8"].font, ws["F8"].border = FILL_INPUT, F_BOLD, BOX
-    ws["F8"].comment = Comment("Input cell: choose any Brazilian state code from the dropdown.", "Analyst")
     dv = DataValidation(type="list", formula1=f"=States!$A${s0}:$A${s1}", allow_blank=False)
     ws.add_data_validation(dv); dv.add("F8")
     look = [("Revenue", "D", '"R$" #,##0.00,,"M"'), ("Revenue rank", "L", "0"), ("AOV", "E", FMT["brl2"]),
@@ -456,9 +452,9 @@ def main() -> None:
         lab = ws.cell(7, c_, label); lab.font = F_KPI_L
         val = ws.cell(8, c_, f"=INDEX(States!${col}${s0}:${col}${s1},MATCH($F$8,States!$A${s0}:$A${s1},0))")
         val.font, val.number_format, val.border = F_BOLD, fmt, BOX
-    ws["B9"] = "vs national: late rate"
+    ws["B9"] = "Late rate vs national:"
     ws["B9"].font = F_KPI_L
-    ws["F9"] = '=IF(P8>Q5,"worse than avg","better than avg")'
+    ws["F9"] = '=IF(P8>Q5,"Worse","Better")'
     ws["F9"].font = F_B
 
     # --- charts
@@ -552,13 +548,13 @@ def main() -> None:
 
     # key insights box
     ins = [
-        "Key insights",
-        "1. Delivery is the #1 driver of satisfaction: late orders score ~2 stars lower and most get 1-2 stars.",
-        "2. ~97% of customers buy only once - retention, not acquisition, is the growth lever.",
-        "3. Revenue grew ~140% Jan-Aug 2018 vs 2017; Nov-2017 (Black Friday) is the peak month.",
-        "4. North/Northeast states wait 2-3x longer than SP, pay more freight, and rate lower.",
-        "5. Top 10% of sellers carry ~2/3 of revenue; a handful of big sellers are 'at risk'.",
-        "6. RFM: 'At Risk' customers (22% of customers) hold 40% of revenue; 79% of customers carry the churn flag.",
+        "Key takeaways",
+        "1. Late deliveries drive bad reviews: 2.3 stars vs 4.3 when on time.",
+        "2. 97% of customers only order once.",
+        "3. Revenue up 140% (Jan-Aug 2018 vs 2017). Best month: Nov 2017 (Black Friday).",
+        "4. North/Northeast customers wait 2-3x longer than SP and rate lower.",
+        "5. Top 10% of sellers make 68% of revenue.",
+        "6. At Risk customers are 22% of the base but 40% of revenue.",
     ]
     for i, t in enumerate(ins, start=60):
         ws.cell(i, 2, t).font = F_BOLD if i == 60 else F_B
