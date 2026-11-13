@@ -214,5 +214,33 @@ Segment table: [`data/processed/rfm_segment_summary.csv`](data/processed/rfm_seg
 | ![Top categories](reports/figures/09_top_categories.png) | ![Customer map](reports/figures/08_customer_map.png) |
 | ![Orders by weekday and hour](reports/figures/02_weekday_hour_heatmap.png) | |
 
+## Excel dashboard
+
+[`excel/Olist_Customer_Dashboard.xlsx`](excel/Olist_Customer_Dashboard.xlsx) is built by [`src/build_excel.py`](src/build_excel.py) from the SQL and Python outputs. The data tabs hold the query results as values; every KPI, ratio, growth rate, lookup and summary on top of them is a **live Excel formula** (431 formulas, 0 errors).
+
+![Excel dashboard](reports/figures/10_excel_dashboard.png)
+
+| Tab | What it shows | Excel features |
+|---|---|---|
+| **Dashboard** | 8 KPI tiles, 7 charts, key insights | Native charts; tiles are formulas over the data tabs |
+| | **State lookup**: pick a state in the yellow cell | Data-validation dropdown + `INDEX`/`MATCH`; compares the state with the national late rate |
+| **Monthly** | Orders, revenue, AOV, MoM growth, 3-month average, running total | `IFERROR`, `AVERAGE`, `SUM` with expanding ranges; data bars |
+| **States** | 27 states: revenue, freight, delivery days, late rate, review | Revenue share and `RANK`; colour scales |
+| **Categories** | 74 categories with Pareto A/B/C classes | Cumulative share with `SUM`; nested `IF`; low ratings highlighted |
+| **Delivery_Reviews** | Review by delay band, score distribution, late vs on time, worst routes | `INDEX`/`MATCH` for the review gap |
+| **Retention** | Repeat purchases and the monthly cohort retention matrix | Weighted average with `SUMPRODUCT` / `SUMIFS`; heatmap |
+| **RFM_Segments** | 8 segments with recommended actions | Share formulas; data bars |
+| **Sellers** | 3,053-seller scorecard (filterable) | `COUNTIFS`, `SUMIFS`, `AVERAGEIFS` summary by segment |
+| **Payments** | Payment mix and installments vs order value | Excel Tables |
+| **Data_Quality** | Raw-file checks and cleaning notes | |
+
+To rebuild it:
+
+```bash
+python src/build_excel.py
+```
+
+On Windows with Excel installed, `powershell -File src/excel_recalc.ps1 -Png reports/figures/10_excel_dashboard.png` recalculates every formula and renders the dashboard image. Elsewhere, the workbook calculates when it is opened.
+
 ## Status
 Work in progress: data cleaning, SQL analysis, Python analysis and an Excel dashboard are being added.
