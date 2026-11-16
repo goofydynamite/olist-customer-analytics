@@ -45,7 +45,7 @@ def write_table(ws, df: pd.DataFrame, start_row: int, start_col: int, name: str,
     fmts = fmts or {}
     for j, col in enumerate(df.columns):
         c = ws.cell(start_row, start_col + j, col)
-        c.alignment = Alignment(wrap_text=True)          # header look comes from the table style
+        c.alignment = Alignment(wrap_text=True)
     for i, row in enumerate(df.itertuples(index=False), start=start_row + 1):
         for j, v in enumerate(row):
             c = ws.cell(i, start_col + j, None if pd.isna(v) else v)
@@ -301,14 +301,14 @@ def main() -> None:
     for col in "CE":
         ws[f"{col}{k1 + 1}"].number_format, ws[f"{col}{k1 + 1}"].font = FMT["pct"], F_BOLD
 
-    # data-driven cut-offs
+    # cut-offs
     cut = r("rfm_cutoffs").rename(columns={"metric": "Metric", "score": "Score", "min_value": "From",
                                            "max_value": "To", "customers": "Customers"})
     u0 = k1 + 5
     ws.cell(u0 - 1, 1, "Score cut-offs").font = F_BOLD
     write_table(ws, cut, u0, 1, "tCutoffs", {"From": "#,##0.00", "To": "#,##0.00", "Customers": "int"})
 
-    # where At Risk revenue sits
+    # at risk by state
     st_r = r("rfm_segment_by_state").rename(columns={"state": "State", "at_risk_customers": "At Risk customers",
                                                     "at_risk_revenue": "At Risk revenue (R$)", "avg_review": "Avg review"})
     ws.cell(u0 - 1, 8, "At Risk revenue by state").font = F_BOLD
@@ -325,7 +325,7 @@ def main() -> None:
     ch.y_axis.crosses = "max"            # value axis at the bottom
     ch.width, ch.height = 16, 8
     ws.add_chart(ch, "N3")
-    # one set of widths for all four tables on this tab (set last: write_table sets its own)
+    # column widths (set after the tables)
     for col, w in zip("ABCDEFGHIJKL", [34, 11, 12, 15, 11, 15, 14, 11, 14, 18, 16, 62]):
         ws.column_dimensions[col].width = w
 
@@ -377,7 +377,7 @@ def main() -> None:
     write_table(ws, it, p1 + 3, 1, "tInstallments", {"Orders": "int", "Avg order value (R$)": "brl2"},
                 widths={"Installments (credit card)": 26})
 
-    # data quality + notes
+    # data quality
     ws = wb.create_sheet("Data_Quality")
     header(ws, "Data Quality Checks", "Raw files, before cleaning")
     write_table(ws, r("../data_quality_report"), 4, 1, "tDQ", {"rows": "int", "null_cells": "int"},
@@ -456,7 +456,7 @@ def main() -> None:
     def place(chart, anchor, w=16, h=7.5):
         chart.width, chart.height = w, h
         if not isinstance(chart, PieChart):
-            chart.x_axis.delete = False          # newer Excel hides axes unless told otherwise
+            chart.x_axis.delete = False          # otherwise Excel hides the axes
             chart.y_axis.delete = False
             chart.varyColors = False
             charts = [chart] + list(getattr(chart, "_charts", []))
@@ -477,7 +477,7 @@ def main() -> None:
         if chart.legend is not None:
             chart.legend.overlay = False
         if isinstance(chart, BarChart) and chart.type == "bar":
-            chart.y_axis.crosses = "max"         # value axis at the bottom when categories run top-down
+            chart.y_axis.crosses = "max"
         if chart.dataLabels is not None:
             dl = chart.dataLabels
             dl.showSerName = dl.showCatName = dl.showLegendKey = False
@@ -539,7 +539,7 @@ def main() -> None:
     ch.y_axis.numFmt = "0%"; ch.legend = None
     place(ch, "R44", 14, 7.5)
 
-    # key insights box
+    # takeaways
     ins = [
         "Key takeaways",
         "1. Late deliveries drive bad reviews: 2.3 stars vs 4.3 when on time.",

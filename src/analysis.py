@@ -1,16 +1,15 @@
 # %% [markdown]
-# # Olist E-commerce: Customer, Delivery & Retention Analysis
+# # Olist orders analysis
 #
-# **Data:** ~99k orders placed on Olist, a Brazilian marketplace, Sep 2016 - Sep 2018 (9 linked tables).
+# About 99k orders from Olist, a Brazilian marketplace, Sep 2016 - Aug 2018.
+# Most of the number crunching happens in SQL (`sql/`). This notebook loads those results,
+# runs a couple of stats checks and makes the charts.
 #
-# **Business questions**
+# Questions:
 # 1. How is the business growing, and when do people buy?
-# 2. Do customers come back? Which customers matter most (RFM)?
-# 3. What drives bad reviews? Is it the product or the delivery?
-# 4. Which categories, sellers and regions need attention?
-#
-# The SQL layer (`sql/`) does the heavy aggregation; this notebook reads those results,
-# adds statistics and segmentation, and saves the charts used in the README and Excel dashboard.
+# 2. Do customers come back, and which ones are worth the most?
+# 3. Are bad reviews about the product or the delivery?
+# 4. Which states, categories and sellers need attention?
 
 # %%
 from pathlib import Path
@@ -31,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 warnings.filterwarnings("ignore")
 try:
     ROOT = Path(__file__).resolve().parents[1]
-except NameError:          # running inside the notebook (cwd = notebooks/)
+except NameError:          # inside the notebook
     ROOT = Path.cwd().resolve().parent
 DB = ROOT / "data" / "olist.db"
 RES = ROOT / "outputs" / "sql_results"
@@ -89,9 +88,9 @@ ax.set_xlabel("hour of day"); ax.set_ylabel(""); ax.grid(False)
 save(fig, "02_weekday_hour_heatmap")
 
 # %% [markdown]
-# ## 2. Retention: almost nobody comes back
+# ## 2. Do customers come back?
 #
-# `customer_id` changes with every order, so all retention work uses `customer_unique_id`.
+# `customer_id` changes with every order, so this uses `customer_unique_id`.
 
 # %%
 rep = r("repeat_purchase_distribution")
@@ -108,10 +107,9 @@ ax.set_xlabel("months since first purchase"); ax.set_ylabel("first-purchase coho
 save(fig, "03_cohort_retention")
 
 # %% [markdown]
-# ### RFM segmentation
-# Scores and segments are computed in SQL (`sql/05_rfm_segmentation.sql`), one row per customer.
-# **R** and **M** are data-driven quintiles; **F** uses business logic (1 / 2 / 3+ orders) because ~97% of
-# customers buy once. The cut-offs below come straight from the data.
+# ### RFM segments
+# The segments come from `sql/05_rfm_segmentation.sql`. R and M are quintiles, F is 1 / 2 / 3+ orders
+# because almost everyone only orders once.
 
 # %%
 print(r("rfm_reference").to_string(index=False))
@@ -156,7 +154,7 @@ axes[1].tick_params(axis="x", labelsize=8.5)
 save(fig, "04_rfm_segments")
 
 # %% [markdown]
-# ## 3. What drives bad reviews? Delivery.
+# ## 3. What drives bad reviews?
 
 # %%
 d = r("review_by_delivery_delay")
@@ -181,9 +179,8 @@ u, p = stats.mannwhitneyu(late, ontime, alternative="less")
 print(f"On-time avg {ontime.mean():.2f} vs late avg {late.mean():.2f}; Mann-Whitney U p = {p:.1e}")
 
 # %% [markdown]
-# ### Which factors predict a 1-2 star review?
-# A simple, interpretable logistic regression on delivered orders. Standardised coefficients show
-# the relative pull of each driver.
+# ### Which order features predict a 1-2 star review?
+# Logistic regression on delivered orders. Features are standardised so the coefficients can be compared.
 
 # %%
 X = dl.assign(
@@ -212,7 +209,7 @@ ax.set_xlabel("standardised coefficient  (right = more likely negative)")
 save(fig, "06_negative_review_drivers")
 
 # %% [markdown]
-# ## 4. Regions, categories and sellers
+# ## 4. States, categories and sellers
 
 # %%
 st = r("customers_by_state")
@@ -262,16 +259,15 @@ print(sel.seller_segment.value_counts().to_string())
 print(r("seller_concentration").to_string(index=False))
 
 # %% [markdown]
-# ## 5. Key findings and recommendations
+# ## 5. Summary
 #
-# | # | Finding | Recommendation |
-# |---|---|---|
-# | 1 | Revenue grew strongly through 2017 and plateaued in 2018; Nov-2017 Black Friday is the peak month. | Plan capacity and seller stock for Q4; growth now has to come from retention, not just acquisition. |
-# | 2 | ~97% of customers order once; monthly cohort retention is well under 1%. | Second-order programme: post-delivery coupon, category-based reminders. Even +1pp repeat rate is meaningful revenue. |
-# | 3 | Late orders average ~2.3 stars vs ~4.3 on time; ~62% of late orders get 1-2 stars. Days late is the strongest driver of negative reviews. | Set realistic delivery estimates, proactive delay notifications, and SLA-based seller ranking. |
-# | 4 | Orders split across several sellers rate much lower. | Consolidate shipments or warn buyers at checkout. |
-# | 5 | North/Northeast states have the longest deliveries and lowest ratings; freight is a larger share of the basket there. | Regional fulfilment partners/hubs; freight subsidies for high-value categories. |
-# | 6 | Top 10% of sellers carry ~2/3 of revenue; a small set of high-volume sellers have low ratings or high late rates. | Seller scorecard with coaching / demotion for "at risk" sellers. |
+# - Revenue grew fast through 2017 and levelled off in 2018. Nov 2017 (Black Friday) was the biggest month.
+# - 97% of customers only order once, so getting a second order matters more than anything else here.
+# - Late orders average 2.3 stars vs 4.3 on time, and days late is the strongest predictor of a bad review.
+# - Orders split across several sellers get lower ratings.
+# - The North/Northeast wait longest, pay the most freight relative to price, and rate lowest.
+# - The top 10% of sellers make 68% of revenue.
+# - At Risk customers are 22% of the base but 40% of revenue.
 
 # %%
 con.close()
