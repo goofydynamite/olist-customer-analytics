@@ -1,9 +1,7 @@
-# Count SQL in GitHub's language stats (Linguist treats .sql as data by default)
+# show SQL in GitHub's language stats
 *.sql linguist-detectable=true
 *.sql linguist-language=SQL
 
-# Keep data and generated files out of the language stats
+# don't count data files or the generated notebook
 *.csv linguist-generated=true
-# The notebook is generated from src/analysis.py by src/make_notebook.py; its embedded
-# chart images would otherwise make "Jupyter Notebook" ~95% of the language bar.
 notebooks/*.ipynb linguist-generated=true
